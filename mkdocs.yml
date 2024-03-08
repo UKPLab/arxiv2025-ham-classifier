@@ -1,4 +1,4 @@
-site_name: ukp_project_template
+site_name: quantum_sent_emb
 nav:
   - Home: index.md
 
@@ -8,7 +8,7 @@ theme:
 plugins:
   - search
   - mkdocstrings:
-      project_name: ukp_project_template
+      project_name: quantum_sent_emb
       handlers:
         python:
           options:

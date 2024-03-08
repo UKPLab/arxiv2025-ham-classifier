@@ -2,11 +2,11 @@
   <img src='logo.png' width='200'>
 </p>
 
-# ukp_project_template
+# quantum_sent_emb
 [![Arxiv](https://img.shields.io/badge/Arxiv-YYMM.NNNNN-red?style=flat-square&logo=arxiv&logoColor=white)](https://put-here-your-paper.com)
-[![License](https://img.shields.io/github/license/UKPLab/ukp-project-template)](https://opensource.org/licenses/Apache-2.0)
+[![License](https://img.shields.io/github/license/akatief/quantum-sent-emb)](https://opensource.org/licenses/Apache-2.0)
 [![Python Versions](https://img.shields.io/badge/Python-3.9-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![CI](https://github.com/UKPLab/ukp-project-template/actions/workflows/main.yml/badge.svg)](https://github.com/UKPLab/ukp-project-template/actions/workflows/main.yml)
+[![CI](https://github.com/akatief/quantum-sent-emb/actions/workflows/main.yml/badge.svg)](https://github.com/akatief/quantum-sent-emb/actions/workflows/main.yml)
 
 This is the official template for new Python projects at UKP Lab. It was adapted for the needs of UKP Lab from the excellent [python-project-template](https://github.com/rochacbruno/python-project-template/) by [rochacbruno](https://github.com/rochacbruno).
 
@@ -48,21 +48,21 @@ pip install -r requirements-dev.txt # Only needed for development
 
 ### Using the classes
 
-This is how you can use classes inside `ukp_project_template`: 
+This is how you can use classes inside `quantum_sent_emb`: 
 
 ```py
-from ukp_project_template import BaseClass
-from ukp_project_template import base_function
+from quantum_sent_emb import BaseClass
+from quantum_sent_emb import base_function
 
 BaseClass().base_method()
 base_function()
 ```
 ### Using scripts
 
-This is how you can use `ukp_project_template` from command line:
+This is how you can use `quantum_sent_emb` from command line:
 
 ```bash
-$ python -m ukp_project_template
+$ python -m quantum_sent_emb
 ```
 
 ### Expected results
