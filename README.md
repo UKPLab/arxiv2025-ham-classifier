@@ -37,7 +37,7 @@ If you want to set up this template:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install .
+pip install --editable .
 pip install -r requirements-dev.txt # Only needed for development
 ```
 5. Adapt anything else (for example this file) to your project. 
