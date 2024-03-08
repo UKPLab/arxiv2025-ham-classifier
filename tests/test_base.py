@@ -1,5 +1,5 @@
 # Tests are defined here
-from ukp_project_template import BaseClass
+from quantum_sent_emb import BaseClass
 
 def test_template():
     assert True
