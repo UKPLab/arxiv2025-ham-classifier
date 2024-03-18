@@ -1,5 +1,9 @@
 from .base import BaseClass
+from .utils import KWArgsMixin
+from .embedding import Embedder
 
 __all__ = [
-    "BaseClass"
+    "BaseClass",
+    "Embedder",
+    "KWArgsMixin"
     ]
