@@ -8,6 +8,8 @@ from quantum_sent_emb import KWArgsMixin
 class Embedder(nn.Module, KWArgsMixin):
     def __init__(self, emb_dim=10, weights_path=None, dict_path=None, vocab_size=None, freeze=True, padding=True):
         '''
+        Creates an Embedder object from word2vec embeddings or dictionary
+        
         emb_dim: dimension of the word2vec embeddings. Ignored if weights_path is specified
         weights_path: path to the word2vec weights file
         dict_path: path to the word2vec dictionary file

@@ -22,12 +22,10 @@ def main():  # pragma: no cover
     """
     # Add arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--type', type=str, default=None, required=True, help='Type of model to train. Options: torch_baseline, torch_quantum, lambeq')
-    parser.add_argument('--model_dir', type=str, default='./models/', help='Path to model directory')
+    parser.add_argument('--arch', type=str, default=None, required=True, help='Architecture to train. Options: ham_mean, ham_weight, baseline')
     parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
     args = parser.parse_args()
-    type = args.type
-    model_dir = args.model_dir
+    arch = args.arch
     emb_path = args.emb_path
 
 
@@ -36,7 +34,7 @@ def main():  # pragma: no cover
 
     sweep_config = {
         'method': 'random',
-        'name' : f'composition_{type}_sweep', # Set this to a unique name
+        'name' : f'composition_{arch}_sweep', # Set this to a unique name
         }
     metric = {
         'name': 'loss',
@@ -53,20 +51,18 @@ def main():  # pragma: no cover
             'values': [1e-2, 1e-3, 1e-4, 1e-5]
             },
         'batch_size': {
-            'values': [8,16,32,64]
+            'values': [32,64,128,256]
             },
         'epochs': {
             'value': 30
             },
-        'embedding_dim': {
-            'values': [16, 32, 64, 128, 256]#, 300, 512] 
+        'emb_dim': {
+            'values': [300] 
             },
-        'limit' : {
-            'values': [10000, 50000, 100000, 500000]
+        'vocab_size' : {
+            'values': [None]
             },
-        'n_qubits': {
-            'values': [4, 8, 16]
-            },
+
         }
     
     sweep_config['parameters'] = global_params
@@ -78,7 +74,7 @@ def main():  # pragma: no cover
         os.makedirs(model_dir)
 
     # torch_baseline, torch_quantum, lambeq
-    train = build_train(type=type, dataset_dir=dataset_dir, model_dir=model_dir, emb_path=emb_path)
+    train = build_train(arch, model_dir, emb_path)
 
     # Train the network
     wandb.agent(sweep_id, train, count=50)

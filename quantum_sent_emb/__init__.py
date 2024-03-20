@@ -1,9 +1,12 @@
-from .base import BaseClass
 from .utils import KWArgsMixin
 from .embedding import Embedder
+from .hamiltonian import HamiltonianClassifier, Circuit
+from .dataloading import CustomDataset
 
 __all__ = [
-    "BaseClass",
     "Embedder",
-    "KWArgsMixin"
+    "KWArgsMixin",
+    "HamiltonianClassifier",
+    "Circuit",
+    "CustomDataset"
     ]
