@@ -17,7 +17,7 @@ def decompose_hamiltonians(hamiltonians):
     # Multiprocessing
     with concurrent.futures.ProcessPoolExecutor() as executor:
         decs = list(tqdm(executor.map(pauli_decompose, hamiltonians), total=len(hamiltonians)))
-            
+    # decs[0].items()
     return decs
 
 def pad_to_next_power_of_two(tensor):
@@ -74,7 +74,7 @@ def plot_hams(ham_dict, name):
     # Plot log histogram of nonid pauli strings
     # Bins should be int numbers from 0 to n_wires
     sns.histplot(gates_nonI, bins=n_wires, discrete=True, stat='percent')
-    plt.title(f'Histogram of {name} non-identity gates')
+    plt.title(f'Percent of {name} non-identity gates')
     plt.savefig(f'plots/{name.lower().replace(' ','_')}_nonid.png')
     plt.close()
 
@@ -85,6 +85,14 @@ def plot_hams(ham_dict, name):
     plt.savefig(f'plots/{name.lower().replace(' ','_')}_nonid_cutoff.png')
     plt.close()
 
+    # Plot histogram of coefficient sum grouped by number of nonid gates
+    df = pd.DataFrame({'coeff':coeffs**2, 'qubit':gates_nonI}).groupby('qubit').sum()
+    sns.barplot(df, x='qubit', y='coeff')
+    plt.title('Coefficient squared sums per number of non-identity Pauli gates')
+    plt.xlabel('Number of non-identity Pauli gates')
+    plt.ylabel('Sum coefficients$^2$')
+    plt.savefig(f'plots/{name.lower().replace(' ','_')}_nonid_sumcoeff.png')
+    plt.close()
 
 n2c = {
     'Identity':ord('I'),
@@ -94,7 +102,7 @@ n2c = {
        }
 
 if __name__ == '__main__':
-    n_samples = 20 # n samples per label
+    n_samples = 1 # n samples per label
 
     # Initialize Embedder
     print('Initializing Embedder...')
@@ -117,46 +125,63 @@ if __name__ == '__main__':
     neg_embeddings = embedder(neg_sentences)
 
     # Takes the first 32 dimensions of the embeddings
-    # pos_embeddings = [e[:,:20] for e in pos_embeddings]
-    # neg_embeddings = [e[:,:20] for e in neg_embeddings]
+    pos_embeddings = [e[:,:20] for e in pos_embeddings]
+    neg_embeddings = [e[:,:20] for e in neg_embeddings]
 
     # Pad embeddings to next power of 2 so from list(sent_length x emb_dim) of size n_samples to list(sent_length x emb_dim_padded) of size n_samples
     print('Padding embeddings...')
     pos_embeddings = [pad_to_next_power_of_two(e) for e in pos_embeddings]
     neg_embeddings = [pad_to_next_power_of_two(e) for e in neg_embeddings]
 
-    # Hamiltonians computed as the dot product of each word embedding
-    print('Computing Hamiltonians...')
+    # Sentence hamiltonians as sum of pure states
+    print('Computing pure hamiltonians...')
     pos_hamiltonians = [torch.einsum('jk,jl->jkl', e, e) for e in pos_embeddings]
     neg_hamiltonians = [torch.einsum('jk,jl->jkl', e, e) for e in neg_embeddings]
-    
-    pos_word_hamiltonians = torch.cat(pos_hamiltonians, dim=0)
+    pos_word_hamiltonians = torch.cat(pos_hamiltonians, dim=0) # Just combine in a tensor
     neg_word_hamiltonians = torch.cat(neg_hamiltonians, dim=0)
-
-    pos_sent_hamiltonians = torch.stack([torch.sum(e, dim=0) for e in pos_hamiltonians])
-    neg_sent_hamiltonians = torch.stack([torch.sum(e, dim=0) for e in neg_hamiltonians])
+    pos_pure_hamiltonians = torch.stack([torch.sum(e, dim=0) for e in pos_hamiltonians])
+    neg_pure_hamiltonians = torch.stack([torch.sum(e, dim=0) for e in neg_hamiltonians])
+    
+    # Sentence hamiltonians as sum of mixed states
+    print('Computing mixed hamiltonians')
+    pos_mean_emb = [torch.mean(e,dim=0) for e in pos_embeddings]
+    neg_mean_emb = [torch.mean(e,dim=0) for e in neg_embeddings]
+    pos_mean_emb = [torch.einsum('k,l -> kl', e, e) for e in pos_mean_emb]
+    neg_mean_emb = [torch.einsum('k,l -> kl', e, e) for e in neg_mean_emb]
+    pos_mix_hamiltonians = torch.cat(pos_mean_emb, dim=0) # Just combine in a tensor
+    neg_mix_hamiltonians = torch.cat(neg_mean_emb, dim=0)
 
     # Decompose hamiltonians using pennylane
-    print('Decomposing Positive Words Hamiltonians...')
-    pos_word_dec = decompose_hamiltonians(pos_word_hamiltonians)
-    print('Decomposing Negative Words Hamiltonians...')
-    neg_word_dec = decompose_hamiltonians(neg_word_hamiltonians)
-    print('Decomposing Positive Sentences Hamiltonians...')
-    pos_sent_dec = decompose_hamiltonians(pos_sent_hamiltonians)
-    print('Decomposing Negative Sentences Hamiltonians...')
-    neg_sent_dec = decompose_hamiltonians(neg_sent_hamiltonians)
+    # print('Decomposing Positive Words Hamilto nians...')
+    # pos_word_dec = decompose_hamiltonians(pos_word_hamiltonians)
+    # print('Decomposing Negative Words Hamiltonians...')
+    # neg_word_dec = decompose_hamiltonians(neg_word_hamiltonians)
+    print('Decomposing Positive Pure Hamiltonians...')
+    pos_pure_dec = decompose_hamiltonians(pos_pure_hamiltonians)
+    print('Decomposing Negative Pure Hamiltonians...')
+    neg_pure_dec = decompose_hamiltonians(neg_pure_hamiltonians)
+
+    print('Decomposing Positive Mixed Hamiltonians...')
+    pos_mix_dec = decompose_hamiltonians(pos_pure_hamiltonians)
+    print('Decomposing Negative Mixed Hamiltonians...')
+    neg_mix_dec = decompose_hamiltonians(neg_pure_hamiltonians)
 
     # Total
-    total_word_dec = pos_word_dec + neg_word_dec
-    total_sent_dec = pos_sent_dec + neg_sent_dec
+    # total_word_dec = pos_word_dec + neg_word_dec
+    total_pure_dec = pos_pure_dec + neg_pure_dec
+    total_mix_dec = pos_mix_dec + neg_mix_dec
 
     # Plot histograms
-    plot_hams(dec_to_dict(pos_word_dec), 'Positive Words')
-    plot_hams(dec_to_dict(neg_word_dec), 'Negative Words')
-    plot_hams(dec_to_dict(pos_sent_dec), 'Positive Sentences')
-    plot_hams(dec_to_dict(neg_sent_dec), 'Negative Sentences')
-    plot_hams(dec_to_dict(total_word_dec), 'Total Words')
-    plot_hams(dec_to_dict(total_sent_dec), 'Total Sentences')
+    # plot_hams(dec_to_dict(pos_word_dec), 'Positive Words')
+    # plot_hams(dec_to_dict(neg_word_dec), 'Negative Words')
+    plot_hams(dec_to_dict(pos_pure_dec), 'Positive Pure Sentences')
+    plot_hams(dec_to_dict(neg_pure_dec), 'Negative Pure Sentences')
+    plot_hams(dec_to_dict(pos_mix_dec), 'Positive Mixed Sentences')
+    plot_hams(dec_to_dict(neg_mix_dec), 'Negative Mixed Sentences')
+    # plot_hams(dec_to_dict(total_word_dec), 'Total Words')
+    plot_hams(dec_to_dict(total_pure_dec), 'Total Pure Sentences')
+    plot_hams(dec_to_dict(total_mix_dec), 'Total Mixed Sentences')
+    
 
     # Create test hamiltonians at random
     # print('Creating random test vectors...')
