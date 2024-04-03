@@ -135,4 +135,4 @@ dmypy.json
 .history
 sketch*
 wandb/
-plots/
+plots_old/
