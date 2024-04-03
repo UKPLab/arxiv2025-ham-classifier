@@ -7,6 +7,7 @@ from tqdm import tqdm
 import concurrent.futures
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 
 def pauli_decompose(hamiltonian):
@@ -102,6 +103,11 @@ n2c = {
        }
 
 if __name__ == '__main__':
+    # Empty plots folder
+    folder = 'plots'
+    for filename in os.listdir(folder):
+        os.remove(os.path.join(folder, filename))
+
     n_samples = 1 # n samples per label
 
     # Initialize Embedder
@@ -125,8 +131,8 @@ if __name__ == '__main__':
     neg_embeddings = embedder(neg_sentences)
 
     # Takes the first 32 dimensions of the embeddings
-    pos_embeddings = [e[:,:20] for e in pos_embeddings]
-    neg_embeddings = [e[:,:20] for e in neg_embeddings]
+    # pos_embeddings = [e[:,:20] for e in pos_embeddings]
+    # neg_embeddings = [e[:,:20] for e in neg_embeddings]
 
     # Pad embeddings to next power of 2 so from list(sent_length x emb_dim) of size n_samples to list(sent_length x emb_dim_padded) of size n_samples
     print('Padding embeddings...')
@@ -158,29 +164,38 @@ if __name__ == '__main__':
     # neg_word_dec = decompose_hamiltonians(neg_word_hamiltonians)
     print('Decomposing Positive Pure Hamiltonians...')
     pos_pure_dec = decompose_hamiltonians(pos_pure_hamiltonians)
+    plot_hams(dec_to_dict(pos_pure_dec), 'Positive Pure Sentences')
+
     print('Decomposing Negative Pure Hamiltonians...')
     neg_pure_dec = decompose_hamiltonians(neg_pure_hamiltonians)
+    plot_hams(dec_to_dict(neg_pure_dec), 'Negative Pure Sentences')
 
     print('Decomposing Positive Mixed Hamiltonians...')
-    pos_mix_dec = decompose_hamiltonians(pos_pure_hamiltonians)
+    pos_mix_dec = decompose_hamiltonians(pos_mix_hamiltonians)
+    plot_hams(dec_to_dict(pos_mix_dec), 'Positive Mixed Sentences')
+
     print('Decomposing Negative Mixed Hamiltonians...')
-    neg_mix_dec = decompose_hamiltonians(neg_pure_hamiltonians)
+    neg_mix_dec = decompose_hamiltonians(neg_mix_hamiltonians)
+    plot_hams(dec_to_dict(neg_mix_dec), 'Negative Mixed Sentences')
 
     # Total
     # total_word_dec = pos_word_dec + neg_word_dec
     total_pure_dec = pos_pure_dec + neg_pure_dec
+    plot_hams(dec_to_dict(total_pure_dec), 'Total Pure Sentences')
     total_mix_dec = pos_mix_dec + neg_mix_dec
+    plot_hams(dec_to_dict(total_mix_dec), 'Total Mixed Sentences')
+    
 
     # Plot histograms
     # plot_hams(dec_to_dict(pos_word_dec), 'Positive Words')
     # plot_hams(dec_to_dict(neg_word_dec), 'Negative Words')
-    plot_hams(dec_to_dict(pos_pure_dec), 'Positive Pure Sentences')
-    plot_hams(dec_to_dict(neg_pure_dec), 'Negative Pure Sentences')
-    plot_hams(dec_to_dict(pos_mix_dec), 'Positive Mixed Sentences')
-    plot_hams(dec_to_dict(neg_mix_dec), 'Negative Mixed Sentences')
-    # plot_hams(dec_to_dict(total_word_dec), 'Total Words')
-    plot_hams(dec_to_dict(total_pure_dec), 'Total Pure Sentences')
-    plot_hams(dec_to_dict(total_mix_dec), 'Total Mixed Sentences')
+    # plot_hams(dec_to_dict(pos_pure_dec), 'Positive Pure Sentences')
+    # plot_hams(dec_to_dict(neg_pure_dec), 'Negative Pure Sentences')
+    # plot_hams(dec_to_dict(pos_mix_dec), 'Positive Mixed Sentences')
+    # plot_hams(dec_to_dict(neg_mix_dec), 'Negative Mixed Sentences')
+    # # plot_hams(dec_to_dict(total_word_dec), 'Total Words')
+    # plot_hams(dec_to_dict(total_pure_dec), 'Total Pure Sentences')
+    # plot_hams(dec_to_dict(total_mix_dec), 'Total Mixed Sentences')
     
 
     # Create test hamiltonians at random
