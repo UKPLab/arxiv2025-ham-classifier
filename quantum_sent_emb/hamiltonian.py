@@ -261,7 +261,7 @@ class Circuit(nn.Module):
         self.n_wires = n_wires
         # 1-qubit gates are applied to each qubit
         # 2-qubit gates are applied in ring configuration
-        c2g = {'rx': RXLayer, 'ry': RYLayer, 'cz': CZRing, 'cnot': CNOTRing, 'crx': CRXRing, 'crz': CRZRing}
+        c2g = {'rx': RXLayer, 'ry': RYLayer, 'rz': RZLayer, 'cz': CZRing, 'cnot': CNOTRing, 'crx': CRXRing, 'crz': CRZRing}
         self.layers = []
         for gate in gates:
             self.layers.append(c2g[gate](n_wires=n_wires))
