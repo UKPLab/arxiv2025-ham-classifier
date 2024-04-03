@@ -1,106 +1,119 @@
 import torch
 import torch.nn as nn
+from quantum_sent_emb import KWArgsMixin
 
-class HamiltonianClassifier(nn.Module):
-    '''
-    Simulated classification based on a quantum Hamiltonian
-    '''
-    def __init__(self, emb_dim, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.emb_size = emb_dim
-        # Next power of 2 of log(emb_size)
-        self.n_wires = (emb_dim - 1).bit_length()
-        self.circuit = Circuit(self.n_wires)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    def forward(self, x):
-        '''
-        x: (batch_size, sent_len, emb_dim)
-
-        Returns:
-        (batch_size)
-        '''
-        x = x.type(torch.complex64)
-        s = x.mean(dim=1).reshape(-1, self.emb_size)
-        s = torch.nn.functional.pad(s, (0, 2**self.n_wires - self.emb_size))
-        # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
-        x = torch.einsum('bsi, bsj -> bij', x, x) / x.shape[1]
-        # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
-        x = torch.nn.functional.pad(x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
-        # Apply self.circuit to sentence
-        sent_emb = self.circuit(s)
-        x = torch.einsum('bi,bij,jb -> b', sent_emb, x, sent_emb.H).real
-        x = torch.clamp(x, min=0, max=1) # Avoids numerical errors
-        # Assert everything is between 0 and 1
-        assert (x >= 0).all() and (x <= 1).all(), f'Expected x between 0 and 1, got {x}'
-        return x, sent_emb
-
-    def get_n_params(self):
-        all_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        n_params = {'n_all_params': all_params}
-        return n_params
-    
-def identity(n_wires):
+def I(n_wires):
     '''
     Builds the identity matrix of size 2**n_wires
     '''
-    return torch.eye(2**n_wires, dtype=torch.complex64).to('cuda')
+    return torch.eye(2**n_wires, dtype=torch.complex64).to(device)
 
-def rot_x(theta):
+def RX(theta):
     '''
     Builds the rotation matrix around X axis
     '''
     theta = theta.view(1,1)
-    cos_theta = torch.cos(theta)
-    sin_theta = torch.sin(theta)
+    cos_theta = torch.cos(theta/2)
+    sin_theta = torch.sin(theta/2)
     return torch.cat([torch.cat([cos_theta, -1j * sin_theta], dim=1),
                       torch.cat([-1j * sin_theta, cos_theta], dim=1)], dim=0)
 
-def x():
+def X():
     '''
     Builds the Pauli-X gate
     '''
     return torch.tensor([[0, 1], [1, 0]], dtype=torch.complex64)
 
-def rot_y(theta):
+def RY(theta):
     '''
     Builds the rotation matrix around Y axis
     '''
     theta = theta.view(1,1)
-    cos_theta = torch.cos(theta)
-    sin_theta = torch.sin(theta)
+    cos_theta = torch.cos(theta/2)
+    sin_theta = torch.sin(theta/2)
     rot_y = torch.cat([torch.cat([cos_theta, -sin_theta], dim=1),
                       torch.cat([sin_theta, cos_theta], dim=1)], dim=0).type(torch.complex64)
     return rot_y
 
-def cz():
+def RZ(theta):
+    '''
+    Builds the rotation matrix around Z axis
+    '''
+    theta = theta.view(1,1)
+    neg_exp = torch.exp(-1j * theta / 2)
+    pos_exp = torch.exp(1j * theta / 2)
+    torch.zeros_like(theta)
+    rot_z = torch.cat([torch.cat([pos_exp, torch.zeros_like(theta)], dim=1),
+                          torch.cat([torch.zeros_like(theta), neg_exp], dim=1)], dim=0)
+    return rot_z
+
+def CZ():
     '''
     Builds the CZ gate
     '''
     CZ = torch.tensor([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, -1]]).type(torch.complex64)
-    return CZ.to('cuda')
+    return CZ.to(device)
 
-def distant_cz(control, target, n_wires):
+def CNOT():
+    '''
+    Builds the CNOT gate
+    '''
+    CNOT = torch.tensor([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]).type(torch.complex64)
+    return CNOT.to(device)
+
+def distant_CZ(control, target, n_wires):
     '''
     Builds a CZ gate for distant qubits
-    Only works for first and last qubit
     '''
+    return _distant_control(control, target, n_wires, Z())
+
+def distant_CNOT(control, target, n_wires):
+    '''
+    Builds a CNOT gate for distant qubits
+    '''
+    return _distant_control(control, target, n_wires, X())
+
+def _distant_control(control, target, n_wires, gate):
+    '''
+    Generalizes non-adjacent control gates
+
+    See:
+    https://quantumcomputing.stackexchange.com/questions/9180/how-do-i-write-the-matrix-for-a-cz-gate-operating-on-nonadjacent-qubits
+    https://quantumcomputing.stackexchange.com/questions/4252/how-to-derive-the-cnot-matrix-for-a-3-qubit-system-where-the-control-target-qu/4254#4254
+    '''
+    U0 = torch.tensor([1], device=device)
+    U1 = torch.tensor([1], device=device)
     assert control < n_wires, f'Expected control < n_wires, got {control} and {n_wires}'
     assert target < n_wires, f'Expected target < n_wires, got {target} and {n_wires}'
-    U = identity(n_wires)
-    ketbra1 = torch.tensor([[0, 0], [0, 1]]).type(torch.complex64).to('cuda')
-    sub = 2 * ketbra1
-    for _ in range(control+1, target):
-        sub = torch.kron(sub, identity(1))
-    sub = torch.kron(sub, ketbra1)
-    return (U - sub)
+    assert control != target, f'Expected control != target, got {control} and {target}'
+    for i in range(n_wires):
+        if i == control:
+            U0 = torch.kron(U0, torch.tensor([[1, 0], [0, 0]], device=device))
+            U1 = torch.kron(U1, torch.tensor([[0, 0], [0, 1]], device=device))
+        elif i == target:
+            U0 = torch.kron(U0, I(1))
+            U1 = torch.kron(U1, gate)
+        else:
+            U0 = torch.kron(U0, I(1))
+            U1 = torch.kron(U1, I(1))
+    return U0 + U1
 
 
-def hadamard():
+def H():
     '''
     Builds the Hadamard gate
     '''
     H = torch.tensor([[1, 1], [1, -1]]).type(torch.complex64) / torch.tensor(2.0).sqrt().type(torch.complex64)
-    return H
+    return H.to(device)
+
+def Z():
+    '''
+    Builds the Pauli-Z gate
+    '''
+    Z = torch.tensor([[1, 0], [0, -1]]).type(torch.complex64)
+    return Z.to(device)
 
 def layer_gate(n_wires, gate):
     '''
@@ -117,18 +130,35 @@ def layer_gate(n_wires, gate):
         for _ in range(n_wires - 1):
             U = torch.kron(U, gate)
     return U.type(torch.complex64)
-    
+
+
 def ring_gate(n_wires, gate):
     '''
     Builds the ring of gates of size 2**n_wires
-    gate is assumed to be 2 wire gate
+    Applies _distant_control to each pair in ring
+
+    If multiple gates are passed, applies each gate to each pair
+    If a single gate is passed, applies the same gate to each pair
+
+    Note: different than qml.broadcast for n_wires = 2
+    qml only applies one gate, this applies two
+
+    Note: gate should be a 1-qubit gate, not a 2-qubit gate,
+    the control adds the second qubit    
+
+    n_wires: number of qubits
+    gate: 1-qubit gate or list of 1-qubit gates
     '''
-    assert n_wires > 2, f'Expected n_wires > 2, got {n_wires}'
-    U = torch.kron(gate, identity(n_wires - 2))
-    for i in range(1, n_wires - 2 + 1):
-        tmp = torch.kron(identity(i), gate)
-        U = torch.kron(tmp, identity(n_wires-2-i)) @ U
-    return U.type(torch.complex64)
+    if not isinstance(gate, list):
+        gate = [gate] * n_wires
+    else:
+        assert len(gate) == n_wires, f'Expected {n_wires} gates, got {len(gate)}'
+
+    U = I(n_wires)
+    for i in range(n_wires):
+        U = _distant_control(i, (i+1)%n_wires, n_wires, gate[i]) @ U
+
+    return U
 
 class RXLayer(nn.Module):
     '''
@@ -140,7 +170,7 @@ class RXLayer(nn.Module):
         self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
 
     def forward(self, x):
-        gates = [rot_x(t) for t in self.theta]
+        gates = [RX(t) for t in self.theta]
         return layer_gate(self.n_wires, gates) @ x
     
 class RYLayer(nn.Module):
@@ -153,8 +183,22 @@ class RYLayer(nn.Module):
         self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
 
     def forward(self, x):
-        gates = [rot_y(t) for t in self.theta]
+        gates = [RY(t) for t in self.theta]
         return layer_gate(self.n_wires, gates) @ x
+    
+class RZLayer(nn.Module):
+    '''
+    Rotation around Z axis
+    '''
+    def __init__(self, n_wires, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.n_wires = n_wires
+        self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
+
+    def forward(self, x):
+        gates = [RZ(t) for t in self.theta]
+        return layer_gate(self.n_wires, gates) @ x
+
     
 class CZRing(nn.Module):
     '''
@@ -165,40 +209,157 @@ class CZRing(nn.Module):
         self.n_wires = n_wires
 
     def forward(self, x):
-        x = ring_gate(self.n_wires, cz()) @ x
-        x = distant_cz(0, self.n_wires - 1, self.n_wires) @ x
+        x = ring_gate(self.n_wires, Z()) @ x
         return x
-    
-class Circuit(nn.Module):
+
+class CNOTRing(nn.Module):
     '''
-    Simulated quantum circuit
+    Ring of CNOT gates
     '''
     def __init__(self, n_wires, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.n_wires = n_wires
-        self.layers = nn.ModuleList([
-            RXLayer(self.n_wires), 
-            RYLayer(self.n_wires), 
-            CZRing(self.n_wires)]*3)
+
+    def forward(self, x):
+        x = ring_gate(self.n_wires, X()) @ x
+        return x
+    
+class CRXRing(nn.Module):
+    '''
+    Ring of CRX gates
+    '''
+    def __init__(self, n_wires, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.n_wires = n_wires
+        self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
+
+    def forward(self, x):
+        gates = [RX(t) for t in self.theta]
+        x = ring_gate(self.n_wires, gates) @ x
+        return x
+
+class CRZRing(nn.Module):
+    '''
+    Ring of CRZ gates
+    '''
+    def __init__(self, n_wires, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.n_wires = n_wires
+        self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
+
+    def forward(self, x):
+        gates = [RZ(t) for t in self.theta]
+        x = ring_gate(self.n_wires, gates) @ x
+        return x
+
+class Circuit(nn.Module):
+    '''
+    Simulated quantum circuit
+    '''
+    def __init__(self, n_wires, gates, n_reps, *args, **kwargs) -> None:
+        super().__init__()
+        self.n_wires = n_wires
+        # 1-qubit gates are applied to each qubit
+        # 2-qubit gates are applied in ring configuration
+        c2g = {'rx': RXLayer, 'ry': RYLayer, 'cz': CZRing, 'cnot': CNOTRing, 'crx': CRXRing, 'crz': CRZRing}
+        self.layers = []
+        for gate in gates:
+            self.layers.append(c2g[gate](n_wires=n_wires))
+        self.layers = nn.ModuleList(self.layers * n_reps)
     
     def forward(self, x):
         x = x.T
         for layer in self.layers:
             x = layer(x)
         return x.T
+    
+    def matrix(self):
+        '''
+        Returns the matrix representation of the circuit
+        '''
+        x = torch.eye(2**self.n_wires, dtype=torch.complex64).to(device)
+        for layer in self.layers:
+            x = layer(x)
+        return x
 
+
+class HamiltonianClassifier(nn.Module, KWArgsMixin):
+    '''
+    Simulated classification based on a quantum Hamiltonian
+    '''
+    def __init__(self, emb_dim, *args, **kwargs) -> None:
+        super().__init__()
+        self.emb_size = emb_dim
+        # Next power of 2 of log(emb_size)
+        self.n_wires = (emb_dim - 1).bit_length()
+        self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, **kwargs)
+
+
+    def forward(self, x):
+        '''
+        x: (batch_size, sent_len, emb_dim)
+
+        Returns:
+        (batch_size)
+        '''
+        x = x.type(torch.complex64)
+        s = x.mean(dim=1).reshape(-1, self.emb_size)
+        s = torch.nn.functional.pad(s, (0, 2**self.n_wires - self.emb_size))
+        # Normalize s
+        s = s / torch.norm(s, dim=1).view(-1, 1)
+        # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
+        # This measures mixed states
+        x = torch.einsum('bsi, bsj -> bij', x, x) / x.shape[1]
+        # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
+        x = torch.nn.functional.pad(x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
+        # Apply self.circuit to sentence
+        sent_emb = self.circuit(s)
+        x = torch.einsum('bi,bij,jb -> b', sent_emb, x, sent_emb.H).real
+        return x, sent_emb
+
+    def get_n_params(self):
+        all_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        n_params = {'n_all_params': all_params}
+        return n_params
+    
 
 if __name__ == '__main__':
-    emb_dim = 300
-    x = torch.rand((256, 10, emb_dim)).type(torch.complex64).to('cuda')
-    model = HamiltonianClassifier(emb_dim=emb_dim).to('cuda')
-    print(model(x))
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    from matplotlib import pyplot as plt
 
-    for i in range(2000):
-        optimizer.zero_grad()
-        output, _ = model(x)
-        loss = torch.mean((output - 1) ** 2).real
-        print(loss)
-        loss.backward()
-        optimizer.step()
+    # Training test
+    # emb_dim = 300
+    # x = torch.rand((256, 10, emb_dim)).type(torch.complex64).to(device)
+    # model = HamiltonianClassifier(emb_dim=emb_dim, gates=['rx', 'ry', 'cz'], n_reps=2)
+    # model = model.to(device)
+    # print(model(x))
+    # optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+
+    # for i in range(2000):
+    #     optimizer.zero_grad()
+    #     output, _ = model(x)
+    #     loss = torch.mean((output - 0) ** 2).real
+    #     print(loss)
+    #     loss.backward()
+    #     # Print gradient norm
+    #     print(f'Gradient norm: {torch.norm(torch.stack([torch.norm(p.grad) for p in model.parameters()]))}')
+    #     optimizer.step()
+    
+    # Layer matrix test
+    emb_dim = 3
+    device = 'cpu'
+    circ = Circuit(n_wires=emb_dim, gates=['crz'], n_reps=1)
+    print(circ.matrix())
+
+    import pennylane as qml
+
+    dev = qml.device("default.qubit", wires=emb_dim)
+    @qml.qnode(dev)
+    def circuit():
+        qml.broadcast(qml.CRZ, wires=range(emb_dim), pattern="ring", parameters=circ.layers[0].theta)
+        # qml.broadcast(qml.RY, wires=range(emb_dim), pattern="single", parameters=circ.layers[1].theta)
+        # qml.broadcast(qml.CZ, wires=range(emb_dim), pattern="ring")
+        # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="ring")
+        return qml.state()
+    print(qml.matrix(circuit)())
+
