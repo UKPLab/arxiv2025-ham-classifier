@@ -1,7 +1,6 @@
 import os
 import wandb
 import argparse
-
 from quantum_sent_emb.wandb import build_train
 
 def main():  # pragma: no cover
@@ -9,16 +8,10 @@ def main():  # pragma: no cover
     The main function executes on commands:
     `python -m quantum_sent_emb` and `$ quantum_sent_emb `.
 
-    This is your program's entry point.
-
-    You can change this function to do whatever you want.
-    Examples:
-        * Run a test suite
-        * Run a server
-        * Do some other stuff
-        * Run a command line application (Click, Typer, ArgParse)
-        * List all available tasks
-        * Run an application (Flask, FastAPI, Django, etc.)
+    Example:
+    ```
+    python -m quantum_sent_emb --arch ham_mean
+    ```
     """
     # Add arguments
     parser = argparse.ArgumentParser()
@@ -30,7 +23,6 @@ def main():  # pragma: no cover
 
 
     wandb.login()
-     # Set from command line to either torch_baseline, torch_quantum or lambeq
 
     sweep_config = {
         'method': 'random',
@@ -58,6 +50,18 @@ def main():  # pragma: no cover
             },
         'emb_dim': {
             'values': [300] 
+            },
+        'gates': {
+            'values': [['ry', 'rz', 'cnot', 'ry','rz'], # Proposed in qiskit's EfficientSU2
+                       # TODO: Circuit 6 of Sim et al 2019 (requires all to all entanglement)
+                       # TODO: Circuit 5 of Sim et al 2019 (requires all to all entanglement)
+                       ['ry', 'crz', 'ry', 'crz'], # Circuit 13 of Sim et al 2019
+                       ['ry', 'crx', 'ry', 'crx'], # Circuit 14 of Sim et al 2019
+                       ['rx', 'ry','rz'], # Control circuit without entanglement
+                       ]
+            },
+        'n_reps': {
+            'values': [4, 8, 16]
             },
         'vocab_size' : {
             'values': [None]

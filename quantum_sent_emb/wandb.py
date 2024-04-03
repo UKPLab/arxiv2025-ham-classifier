@@ -29,7 +29,7 @@ def build_dataset(config, device, shuffle=True, eval_batch_size=256):
     train_dev_dataset = datasets["train"].train_test_split(test_size=0.1)
     train_dataset = CustomDataset(train_dev_dataset['train'], data_key='sentence', label_key='label')
     dev_dataset = CustomDataset(train_dev_dataset['test'], data_key='sentence', label_key='label')
-    test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
+    test_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
 
 
     # Create data loaders
@@ -44,7 +44,9 @@ def build_dataset(config, device, shuffle=True, eval_batch_size=256):
 def build_model(arch, config):
     if arch == 'ham_mean':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for hamiltonian model'
-        return HamiltonianClassifier(emb_dim=config.emb_dim)
+        assert hasattr(config,'gates'), 'Gates must be provided for hamiltonian model'
+        assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for hamiltonian model'
+        return HamiltonianClassifier(emb_dim=config.emb_dim, gates=config.gates, n_reps=config.n_reps)
     elif arch == 'ham_weight':
         raise NotImplementedError('Weighted Hamiltonian model not yet implemented')
     elif arch == 'baseline':
@@ -102,6 +104,7 @@ def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
             if verbose:
                 print('Building model, datasets, optimizer and embedding...')
             model, all_datasets, optimizer, embedding = build_parameters(arch, emb_path, device=device, config=config)
+            print(f'Now evaluating model: {model.kwargs}')
             n_params = model.get_n_params() # Dict containing n_params for every part 
             wandb.log(n_params)
             if verbose:
@@ -115,7 +118,7 @@ def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
             train_loader, test_loader, dev_loader = all_datasets
 
             # Define loss function and optimizer
-            criterion = nn.BCELoss()
+            criterion = nn.MSELoss()
             
             total_time = 0
             train_time = 0
