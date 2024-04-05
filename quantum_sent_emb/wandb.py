@@ -90,8 +90,8 @@ def build_parameters(arch, emb_path, device, config):
     return model, all_datasets, optimizer, embedding
 
 
-def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
-    def train(config=None, verbose=verbose):
+def build_train(arch, model_dir, emb_path, patience=5):
+    def train(config=None):
         # Finds device to run on
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print(f'Running on {device}')
@@ -101,25 +101,27 @@ def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
             config = wandb.config
 
             # Build model, datasets and optimizer
-            if verbose:
-                print('Building model, datasets, optimizer and embedding...')
+            print('Building model, datasets, optimizer and embedding...')
             model, all_datasets, optimizer, embedding = build_parameters(arch, emb_path, device=device, config=config)
+            print('Done.')
             print(f'Now evaluating model: {model.kwargs}')
+            
             n_params = model.get_n_params() # Dict containing n_params for every part 
             wandb.log(n_params)
-            if verbose:
-                print('Done.')
-                print('Sending model & embedding to device...')
+
+
+            print('Sending model & embedding to device...')
+            
             model = model.to(device)
             embedding = embedding.to(device)
-            if verbose:
-                print('Done.')
+            print('Done.')
 
             train_loader, test_loader, dev_loader = all_datasets
 
             # Define loss function and optimizer
             criterion = nn.MSELoss()
             
+            print('Training...')
             total_time = 0
             train_time = 0
             dev_eval_time = 0
@@ -130,41 +132,33 @@ def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
                 start_epoch = time.time()
 
                 cumu_loss = 0
+                cumu_corr = 0
                 for batch in tqdm(train_loader):
                     data = batch['data']
                     labels = batch['label'].type(torch.float).to(device)
                     # Zero the gradients
                     optimizer.zero_grad()
 
-                    if verbose:
-                        print('Embedding text...')
                     inputs = embedding(data)
 
                     # Forward pass
-                    if verbose:
-                        print('Forward pass...')
                     outputs, _ = model(inputs)
-                    if verbose:
-                        print('Done.')
-                        print('Computing loss...')
                     loss = criterion(outputs, labels)
-                    if verbose:
-                        print('Done.')
                     cumu_loss += loss.item()
+                    cumu_corr += torch.sum((outputs > 0.5) == labels).item() 
 
                     # Backward pass and optimization
-                    if verbose:
-                        print('Backward pass and optimization...')
                     loss.backward()
                     optimizer.step()
-                    if verbose:
-                        print('Done.')
-
+                    
                     # Log loss
                     wandb.log({"batch loss": loss.item()})
+                print('Done.')
 
                 train_loss = cumu_loss / len(train_loader)
-                
+                train_acc = cumu_corr / len(train_loader)
+                print(f'Train loss: {train_loss}, Train accuracy: {train_acc}')
+
                 # Log train runtime in minutes
                 train_epoch = time.time()
                 train_time += (train_epoch - start_epoch) / 60               
@@ -172,27 +166,22 @@ def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
                 # Evaluate on dev set
                 print('Evaluating on dev set...')
                 cumu_loss = 0
+                cumu_corr = 0
                 with torch.no_grad():
                     for batch in tqdm(dev_loader):
                         data = batch['data']
                         labels = batch['label'].type(torch.float).to(device)
-                        if verbose:
-                            print('Embedding text...')
                         inputs = embedding(data)
 
                         # Forward pass
-                        if verbose:
-                            print('Forward pass...')
                         outputs, _ = model(inputs)
-                        if verbose:
-                            print('Done.')
-                            print('Computing loss...')
                         loss = criterion(outputs, labels)
-                        if verbose:
-                            print('Done.')
                         cumu_loss += loss.item()
+                        cumu_corr += torch.sum((outputs > 0.5) == labels).item()
                 
                 dev_loss = cumu_loss / len(dev_loader)
+                dev_acc = cumu_corr / len(dev_loader)
+                print(f'Dev loss: {dev_loss}, Dev accuracy: {dev_acc}')
                 print('Done.')
 
                 # Log evaluation runtime in minutes
@@ -204,6 +193,8 @@ def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
                 wandb.log({"epoch": epoch, 
                            "loss": train_loss, 
                            "dev loss": dev_loss,
+                           "train accuracy": train_acc,
+                           "dev accuracy": dev_acc,
                            "train epoch time": train_time, 
                            "dev eval epoch time": dev_eval_time,
                            "total epoch time": total_time})
@@ -224,30 +215,26 @@ def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
             # Evaluate on test set
             print('Evaluating on test set...')
             cumu_loss = 0
+            cumu_corr = 0
             with torch.no_grad():
                 for batch in tqdm(test_loader):
                     data = batch['data']
                     labels = batch['label'].type(torch.float).to(device)
 
-                    if verbose:
-                        print('Embedding text...')
                     inputs = embedding(data)
 
                     # Forward pass
-                    if verbose:
-                        print('Forward pass...')
                     outputs, _ = model(inputs)
-                    if verbose:
-                        print('Done.')
-                        print('Computing loss...')
                     loss = criterion(outputs, labels)
-                    if verbose:
-                        print('Done.')
-                    cumu_loss += loss.item()            
-            
+                    cumu_loss += loss.item()    
+                    cumu_corr += torch.sum((outputs > 0.5) == labels).item()        
+            print('Done.')
             
             # Log loss
-            wandb.log({"test loss": cumu_loss / len(test_loader)})
+            test_loss = cumu_loss / len(test_loader)
+            test_acc = cumu_corr / len(test_loader)
+            wandb.log({"test loss": test_loss,
+                       "test accuracy": test_acc})
 
             # Save the best model
             save_path = os.path.join(model_dir, f'model_{arch}_{wandb.run.name}.pth')
