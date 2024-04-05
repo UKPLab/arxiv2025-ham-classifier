@@ -155,8 +155,8 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     wandb.log({"batch loss": loss.item()})
                 print('Done.')
 
-                train_loss = cumu_loss / len(train_loader)
-                train_acc = cumu_corr / len(train_loader)
+                train_loss = cumu_loss / len(train_loader.dataset)
+                train_acc = cumu_corr / len(train_loader.dataset)
                 print(f'Train loss: {train_loss}, Train accuracy: {train_acc}')
 
                 # Log train runtime in minutes
@@ -179,8 +179,8 @@ def build_train(arch, model_dir, emb_path, patience=5):
                         cumu_loss += loss.item()
                         cumu_corr += torch.sum((outputs > 0.5) == labels).item()
                 
-                dev_loss = cumu_loss / len(dev_loader)
-                dev_acc = cumu_corr / len(dev_loader)
+                dev_loss = cumu_loss / len(dev_loader.dataset)
+                dev_acc = cumu_corr / len(dev_loader.dataset)
                 print(f'Dev loss: {dev_loss}, Dev accuracy: {dev_acc}')
                 print('Done.')
 
@@ -231,8 +231,9 @@ def build_train(arch, model_dir, emb_path, patience=5):
             print('Done.')
             
             # Log loss
-            test_loss = cumu_loss / len(test_loader)
-            test_acc = cumu_corr / len(test_loader)
+            test_loss = cumu_loss / len(test_loader.dataset)
+            test_acc = cumu_corr / len(test_loader.dataset)
+            print(f'Test loss: {test_loss}, Test accuracy: {test_acc}')
             wandb.log({"test loss": test_loss,
                        "test accuracy": test_acc})
 
