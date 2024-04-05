@@ -18,13 +18,13 @@ def RX(theta):
     cos_theta = torch.cos(theta/2)
     sin_theta = torch.sin(theta/2)
     return torch.cat([torch.cat([cos_theta, -1j * sin_theta], dim=1),
-                      torch.cat([-1j * sin_theta, cos_theta], dim=1)], dim=0)
+                      torch.cat([-1j * sin_theta, cos_theta], dim=1)], dim=0).to(device)
 
 def X():
     '''
     Builds the Pauli-X gate
     '''
-    return torch.tensor([[0, 1], [1, 0]], dtype=torch.complex64)
+    return torch.tensor([[0, 1], [1, 0]], dtype=torch.complex64).to(device)
 
 def RY(theta):
     '''
@@ -35,7 +35,7 @@ def RY(theta):
     sin_theta = torch.sin(theta/2)
     rot_y = torch.cat([torch.cat([cos_theta, -sin_theta], dim=1),
                       torch.cat([sin_theta, cos_theta], dim=1)], dim=0).type(torch.complex64)
-    return rot_y
+    return rot_y.to(device)
 
 def RZ(theta):
     '''
@@ -47,7 +47,7 @@ def RZ(theta):
     torch.zeros_like(theta)
     rot_z = torch.cat([torch.cat([pos_exp, torch.zeros_like(theta)], dim=1),
                           torch.cat([torch.zeros_like(theta), neg_exp], dim=1)], dim=0)
-    return rot_z
+    return rot_z.to(device)
 
 def CZ():
     '''
