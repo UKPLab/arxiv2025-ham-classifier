@@ -61,7 +61,7 @@ def main():  # pragma: no cover
                        ]
             },
         'n_reps': {
-            'values': [4, 8, 16]
+            'values': [4, 16, 64]
             },
         'vocab_size' : {
             'values': [None]
@@ -71,7 +71,7 @@ def main():  # pragma: no cover
     
     sweep_config['parameters'] = global_params
 
-    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v0")
+    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v1")
 
     model_dir = './models/'
     if not os.path.exists(model_dir):
