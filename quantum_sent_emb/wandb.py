@@ -253,4 +253,6 @@ def build_train(arch, model_dir, emb_path, patience=5, verbose=False):
             save_path = os.path.join(model_dir, f'model_{arch}_{wandb.run.name}.pth')
             torch.save([model.kwargs, model.state_dict()], save_path)
 
+            del model
+            del embedding
     return train
