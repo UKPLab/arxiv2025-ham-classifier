@@ -316,6 +316,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin):
         # Apply self.circuit to sentence
         sent_emb = self.circuit(s)
         x = torch.einsum('bi,bij,jb -> b', sent_emb, x, sent_emb.H).real
+        x = nn.functional.sigmoid(x)
         return x, sent_emb
 
     def get_n_params(self):
