@@ -160,6 +160,39 @@ def ring_gate(n_wires, gate):
 
     return U
 
+def a2a_gate(n_wires, gate):
+    '''
+    Builds the all-to-all gate of size 2**n_wires
+    Applies _distant_control to each pair
+
+    If multiple gates are passed, applies each gate to each pair
+    If a single gate is passed, applies the same gate to each pair
+
+    Note: different than qml.broadcast
+    qml only applies controls A->B, this applies also B->A
+
+    Note: gate should be a 1-qubit gate, not a 2-qubit gate,
+    the control adds the second qubit    
+
+    n_wires: number of qubits
+    gate: 1-qubit gate or list of 1-qubit gates
+    '''
+    if not isinstance(gate, list):
+        gate = [gate] * n_wires * (n_wires - 1)
+    else:
+        assert len(gate) == n_wires * (n_wires - 1), \
+        f'Expected {n_wires * (n_wires - 1)} gates, got {len(gate)}'
+
+    U = I(n_wires)
+    for i in range(n_wires):
+        for j in range(n_wires):
+            if i != j:
+                # Unrolls matrix ignoring diagonal
+                w_index = (i * n_wires + j) - (i * n_wires + j) // (n_wires + 1) - 1
+                U = _distant_control(i, j, n_wires, gate[w_index]) @ U
+
+    return U
+
 class RXLayer(nn.Module):
     '''
     Rotation around X axis 
@@ -251,6 +284,38 @@ class CRZRing(nn.Module):
         gates = [RZ(t) for t in self.theta]
         x = ring_gate(self.n_wires, gates) @ x
         return x
+    
+class CRXAllToAll(nn.Module):
+    '''
+    All-to-all CRX gates
+    '''
+    def __init__(self, n_wires, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.n_wires = n_wires
+        n_params = self.n_wires * (self.n_wires - 1)
+        self.theta = nn.Parameter(torch.rand((n_params, 1)))
+
+    def forward(self, x):
+        gates = [RX(t) for t in self.theta]
+        x = a2a_gate(self.n_wires, gates) @ x
+        return x
+    
+class CRZAllToAll(nn.Module):
+    '''
+    All-to-all CRZ gates
+    '''
+    def __init__(self, n_wires, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.n_wires = n_wires
+        n_params = self.n_wires * (self.n_wires - 1)
+        self.theta = nn.Parameter(torch.rand((n_params, 1)))
+
+    def forward(self, x):
+        gates = [RZ(t) for t in self.theta]
+        x = a2a_gate(self.n_wires, gates) @ x
+        return x
+
+
 
 class Circuit(nn.Module):
     '''
@@ -261,7 +326,9 @@ class Circuit(nn.Module):
         self.n_wires = n_wires
         # 1-qubit gates are applied to each qubit
         # 2-qubit gates are applied in ring configuration
-        c2g = {'rx': RXLayer, 'ry': RYLayer, 'rz': RZLayer, 'cz': CZRing, 'cnot': CNOTRing, 'crx': CRXRing, 'crz': CRZRing}
+        c2g = {'rx': RXLayer, 'ry': RYLayer, 'rz': RZLayer, 'cz_ring': CZRing, 
+               'cnot_ring': CNOTRing, 'crx_ring': CRXRing, 'crz_ring': CRZRing,
+               'crx_all_to_all': CRXAllToAll, 'crz_all_to_all': CRZAllToAll}
         self.layers = []
         for gate in gates:
             self.layers.append(c2g[gate](n_wires=n_wires))
@@ -347,9 +414,9 @@ if __name__ == '__main__':
     #     optimizer.step()
     
     # Layer matrix test
-    emb_dim = 3
+    emb_dim = 5
     device = 'cpu'
-    circ = Circuit(n_wires=emb_dim, gates=['crz'], n_reps=1)
+    circ = Circuit(n_wires=emb_dim, gates=['crx_all_to_all'], n_reps=1)
     print(circ.matrix())
 
     import pennylane as qml
@@ -357,10 +424,22 @@ if __name__ == '__main__':
     dev = qml.device("default.qubit", wires=emb_dim)
     @qml.qnode(dev)
     def circuit():
-        qml.broadcast(qml.CRZ, wires=range(emb_dim), pattern="ring", parameters=circ.layers[0].theta)
+        # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="all_to_all")
         # qml.broadcast(qml.RY, wires=range(emb_dim), pattern="single", parameters=circ.layers[1].theta)
         # qml.broadcast(qml.CZ, wires=range(emb_dim), pattern="ring")
         # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="ring")
+        wdiff = []
+        for i in range(emb_dim):
+            wdiff += [0] + [-(i+1)]*emb_dim
+        wdiff += [0]
+        for i in range(emb_dim):
+            for j in range(emb_dim):
+                if i != j:
+                    w_index = (i * emb_dim + j) - (i * emb_dim + j) // (emb_dim + 1) - 1
+                    qml.CRX(circ.layers[0].theta[w_index], wires=[i,j])
+
         return qml.state()
     print(qml.matrix(circuit)())
+    # qml.draw_mpl(circuit)()
+    # plt.show()
 

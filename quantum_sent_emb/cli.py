@@ -52,11 +52,11 @@ def main():  # pragma: no cover
             'values': [300] 
             },
         'gates': {
-            'values': [['ry', 'rz', 'cnot', 'ry','rz'], # Proposed in qiskit's EfficientSU2
-                       # TODO: Circuit 6 of Sim et al 2019 (requires all to all entanglement)
-                       # TODO: Circuit 5 of Sim et al 2019 (requires all to all entanglement)
-                       ['ry', 'crz', 'ry', 'crz'], # Circuit 13 of Sim et al 2019
-                       ['ry', 'crx', 'ry', 'crx'], # Circuit 14 of Sim et al 2019
+            'values': [['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
+                       ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'], # Circuit 6 of Sim et al 2019
+                       ['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
+                       ['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
+                       ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
                        ['rx', 'ry','rz'], # Control circuit without entanglement
                        ]
             },
@@ -71,7 +71,7 @@ def main():  # pragma: no cover
     
     sweep_config['parameters'] = global_params
 
-    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v1")
+    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v0")
 
     model_dir = './models/'
     if not os.path.exists(model_dir):
