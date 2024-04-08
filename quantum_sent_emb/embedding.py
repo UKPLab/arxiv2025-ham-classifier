@@ -6,7 +6,7 @@ from quantum_sent_emb import KWArgsMixin
 
 
 class Embedder(nn.Module, KWArgsMixin):
-    def __init__(self, emb_dim=10, weights_path=None, dict_path=None, vocab_size=None, freeze=True, padding=True):
+    def __init__(self, emb_dim=10, weights_path=None, dict_path=None, vocab_size=None, freeze=True, padding='zeros'):
         '''
         Creates an Embedder object from word2vec embeddings or dictionary
         
@@ -49,7 +49,7 @@ class Embedder(nn.Module, KWArgsMixin):
                 vectors = torch.cat((vectors, vectors[-1].unsqueeze(0)), dim=0)
             
             assert '<unk>' in self._key_to_index, 'No <unk> token in vocabulary'
-            self.embedding = nn.Embedding.from_pretrained(vectors, freeze=freeze, padding_idx=0)
+            self.embedding = nn.Embedding.from_pretrained(vectors, freeze=freeze)
         self.emb_dim = emb_dim
         self.padding = padding
         KWArgsMixin.__init__(self, emb_dim=emb_dim, weights_path=weights_path, dict_path=dict_path, vocab_size=vocab_size, freeze=freeze) # Saves kwargs
@@ -69,14 +69,20 @@ class Embedder(nn.Module, KWArgsMixin):
         text = [sentence.lower() for sentence in text] # Lowercase all words
         indices = [[self._key_to_index[word] if word in self._key_to_index else self._key_to_index['<unk>'] if '<unk>' in self._key_to_index else 0 for word in sentence.split()] for sentence in text]
         indices = [torch.LongTensor(sentence).to(device=self.embedding.weight.device) for sentence in indices]
-        if self.padding:
-            indices = nn.utils.rnn.pad_sequence(indices, batch_first=True)
-            torch_embedding = self.embedding(indices)
+        lengths = [len(sentence) for sentence in indices]
+        lengths = torch.tensor(lengths, device=self.embedding.weight.device)
+        if self.padding == 'zeros':
+            torch_embedding = [self.embedding(idx) for idx in indices]
+            torch_embedding = nn.utils.rnn.pad_sequence(torch_embedding, batch_first=True)
+
+            # indices = nn.utils.rnn.pad_sequence(indices, batch_first=True)
+            # torch_embedding = self.embedding(indices)
         else:
             torch_embedding = [self.embedding(sentence) for sentence in indices]
         # torch_embedding = nn.functional.softmax(torch_embedding, dim=2)
         # Tensor of size (n sentences, n words, embedding_dim)
-        return torch_embedding      
+        # TODO: return sentence lengths
+        return torch_embedding, lengths  
 
     # TODO: give alternative definition based on MSE
     def mrr_score(self, inputs, text_labels, reduction='mean'):
