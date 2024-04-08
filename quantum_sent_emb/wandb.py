@@ -243,4 +243,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
 
             del model
             del embedding
+            torch.cuda.empty_cache()
+            print('Current memory allocated: ', torch.cuda.memory_allocated())
+
     return train
