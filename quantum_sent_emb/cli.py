@@ -51,6 +51,9 @@ def main():  # pragma: no cover
         'emb_dim': {
             'values': [300] 
             },
+        'hamiltonian': {
+            'values': ['pure', 'mixed']
+            },
         'gates': {
             'values': [['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
                        ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'], # Circuit 6 of Sim et al 2019

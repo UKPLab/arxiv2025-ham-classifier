@@ -354,30 +354,46 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin):
     '''
     Simulated classification based on a quantum Hamiltonian
     '''
-    def __init__(self, emb_dim, *args, **kwargs) -> None:
+    def __init__(self, emb_dim, hamiltonian, *args, **kwargs) -> None:
+        '''
+        emb_dim: size of the embedding
+        hamiltonian: 'pure' or 'mixed'
+        '''
         super().__init__()
         self.emb_size = emb_dim
+        self.hamiltonian = hamiltonian
         # Next power of 2 of log(emb_size)
         self.n_wires = (emb_dim - 1).bit_length()
         self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
         KWArgsMixin.__init__(self, emb_dim=emb_dim, **kwargs)
 
 
-    def forward(self, x):
+    def forward(self, x, lengths):
         '''
         x: (batch_size, sent_len, emb_dim)
+        lengths: (batch_size)
 
         Returns:
-        (batch_size)
+        (batch_size), (batch_size, emb_dim)
         '''
         x = x.type(torch.complex64)
         s = x.mean(dim=1).reshape(-1, self.emb_size)
         s = torch.nn.functional.pad(s, (0, 2**self.n_wires - self.emb_size))
         # Normalize s
         s = s / torch.norm(s, dim=1).view(-1, 1)
+        
         # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
-        # This measures mixed states
-        x = torch.einsum('bsi, bsj -> bij', x, x) / x.shape[1]
+        
+        if self.hamiltonian == 'pure': 
+            # This measures pure states
+            x = torch.einsum('bsi, bsj -> bij', x, x) / lengths.view(-1,1,1)
+        elif self.hamiltonian == 'mixed':        
+            # This measures mixed states
+            x = torch.sum(x, dim=1)
+            x = torch.einsum('bi,bj -> bij', x, x) / lengths.view(-1,1,1)
+        else:
+            raise ValueError(f'Unknown Hamiltonian {self.hamiltonian}')
+
         # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
         x = torch.nn.functional.pad(x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
         # Apply self.circuit to sentence

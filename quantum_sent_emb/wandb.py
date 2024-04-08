@@ -44,9 +44,10 @@ def build_dataset(config, device, shuffle=True, eval_batch_size=256):
 def build_model(arch, config):
     if arch == 'ham_mean':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for hamiltonian model'
+        assert hasattr(config,'hamiltonian'), 'Hamiltonian type must be provided for hamiltonian model'
         assert hasattr(config,'gates'), 'Gates must be provided for hamiltonian model'
         assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for hamiltonian model'
-        return HamiltonianClassifier(emb_dim=config.emb_dim, gates=config.gates, n_reps=config.n_reps)
+        return HamiltonianClassifier(emb_dim=config.emb_dim, hamiltonian=config.hamiltonian, gates=config.gates, n_reps=config.n_reps)
     elif arch == 'ham_weight':
         raise NotImplementedError('Weighted Hamiltonian model not yet implemented')
     elif arch == 'baseline':
@@ -139,10 +140,10 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     # Zero the gradients
                     optimizer.zero_grad()
 
-                    inputs = embedding(data)
+                    inputs, lengths = embedding(data)
 
                     # Forward pass
-                    outputs, _ = model(inputs)
+                    outputs, _ = model(inputs, lengths)
                     loss = criterion(outputs, labels)
                     cumu_loss += loss.item()
                     cumu_corr += torch.sum((outputs > 0.5) == labels).item() 
@@ -171,10 +172,10 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     for batch in tqdm(dev_loader):
                         data = batch['data']
                         labels = batch['label'].type(torch.float).to(device)
-                        inputs = embedding(data)
+                        inputs, lengths = embedding(data)
 
                         # Forward pass
-                        outputs, _ = model(inputs)
+                        outputs, _ = model(inputs, lengths)
                         loss = criterion(outputs, labels)
                         cumu_loss += loss.item()
                         cumu_corr += torch.sum((outputs > 0.5) == labels).item()
@@ -221,10 +222,10 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     data = batch['data']
                     labels = batch['label'].type(torch.float).to(device)
 
-                    inputs = embedding(data)
+                    inputs, lengths = embedding(data)
 
                     # Forward pass
-                    outputs, _ = model(inputs)
+                    outputs, _ = model(inputs, lengths)
                     loss = criterion(outputs, labels)
                     cumu_loss += loss.item()    
                     cumu_corr += torch.sum((outputs > 0.5) == labels).item()        
