@@ -52,7 +52,7 @@ def main():  # pragma: no cover
             'values': [300] 
             },
         'hamiltonian': {
-            'values': ['pure', 'mixed']
+            'values': ['pure'] # 'mixed'
             },
         'gates': {
             'values': [['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
@@ -64,7 +64,7 @@ def main():  # pragma: no cover
                        ]
             },
         'n_reps': {
-            'values': [4, 16, 64]
+            'values': [16, 64, 256]
             },
         'vocab_size' : {
             'values': [None]
@@ -74,7 +74,7 @@ def main():  # pragma: no cover
     
     sweep_config['parameters'] = global_params
 
-    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v0")
+    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v1")
 
     model_dir = './models/'
     if not os.path.exists(model_dir):
