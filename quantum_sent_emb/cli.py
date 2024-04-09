@@ -26,7 +26,7 @@ def main():  # pragma: no cover
 
     sweep_config = {
         'method': 'random',
-        'name' : f'composition_{arch}_sweep', # Set this to a unique name
+        'name' : f'sentemb_{arch}_sweep',
         }
     metric = {
         'name': 'loss',
@@ -43,7 +43,7 @@ def main():  # pragma: no cover
             'values': [1e-2, 1e-3, 1e-4, 1e-5]
             },
         'batch_size': {
-            'values': [32,64,128,256]
+            'values': [64,128,256]
             },
         'epochs': {
             'value': 30
