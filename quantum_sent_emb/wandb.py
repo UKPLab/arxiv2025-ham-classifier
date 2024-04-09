@@ -94,7 +94,7 @@ def build_parameters(arch, emb_path, device, config):
 def build_train(arch, model_dir, emb_path, patience=5):
     def train(config=None):
         # Finds device to run on
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print(f'Running on {device}')
 
         # Initialize a new wandb run
@@ -201,7 +201,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
                            "total epoch time": total_time})
                 
                 # Check if the current validation loss is better than the previous best loss
-                if dev_loss < best_dev_loss:
+                if dev_loss < best_dev_loss - 1e-3:
                     best_dev_loss = dev_loss
                     counter = 0  # Reset the counter since there's improvement
                 else:
