@@ -229,6 +229,7 @@ class RXLayer(nn.Module, UpdateMixin):
         self.update()
 
     def update(self):
+        del self.gate
         gates = [RX(t) for t in self.theta]
         self.gate = layer_gate(self.n_wires, gates).to(device)
 
@@ -249,6 +250,7 @@ class RYLayer(nn.Module, UpdateMixin):
         self.update()
 
     def update(self):
+        del self.gate
         gates = [RY(t) for t in self.theta]
         self.gate = layer_gate(self.n_wires, gates).to(device)
 
@@ -268,6 +270,7 @@ class RZLayer(nn.Module, UpdateMixin):
         self.gate = None
 
     def update(self):
+        del self.gate
         gates = [RZ(t) for t in self.theta]
         self.gate = layer_gate(self.n_wires, gates).to(device)
 
@@ -316,6 +319,7 @@ class CRXRing(nn.Module, UpdateMixin):
         self.update()
 
     def update(self):
+        del self.gate
         gates = [RX(t) for t in self.theta]
         self.gate = ring_gate(self.n_wires, gates)
 
@@ -336,6 +340,7 @@ class CRZRing(nn.Module, UpdateMixin):
         self.update()
 
     def update(self):
+        del self.gate
         gates = [RZ(t) for t in self.theta]
         self.gate = ring_gate(self.n_wires, gates)
 
@@ -357,6 +362,7 @@ class CRXAllToAll(nn.Module, UpdateMixin):
         self.update()
 
     def update(self):
+        del self.gate
         gates = [RX(t) for t in self.theta]
         self.gate = a2a_gate(self.n_wires, gates)
 
@@ -378,6 +384,7 @@ class CRZAllToAll(nn.Module, UpdateMixin):
         self.update()
 
     def update(self):
+        del self.gate
         gates = [RZ(t) for t in self.theta]
         self.gate = a2a_gate(self.n_wires, gates)
 
