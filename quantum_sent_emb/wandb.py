@@ -150,8 +150,17 @@ def build_train(arch, model_dir, emb_path, patience=5):
 
                     # Backward pass and optimization
                     loss.backward()
-                    optimizer.step()
-                    
+
+                    # Ugly workaround to have grads on gpu
+                    if hasattr(model, 'update'):                        
+                        for param in model.parameters():
+                            if param.grad is not None:
+                                param.grad.data = param.grad.data.to(param.data.device)
+                        optimizer.step()
+                        model.update()
+                    else:
+                        optimizer.step()
+
                     # Log loss
                     wandb.log({"batch loss": loss.item()})
                 print('Done.')

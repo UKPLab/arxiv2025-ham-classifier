@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from quantum_sent_emb import KWArgsMixin
+from quantum_sent_emb import KWArgsMixin, UpdateMixin
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -216,7 +216,7 @@ def a2a_gate(n_wires, gate):
     return U
 
 
-class RXLayer(nn.Module):
+class RXLayer(nn.Module, UpdateMixin):
     '''
     Rotation around X axis 
     '''
@@ -225,13 +225,18 @@ class RXLayer(nn.Module):
         super().__init__(*args, **kwargs)
         self.n_wires = n_wires
         self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
+        self.gate = None
+        self.update()
+
+    def update(self):
+        gates = [RX(t) for t in self.theta]
+        self.gate = layer_gate(self.n_wires, gates).to(device)
 
     def forward(self, x):
-        gates = [RX(t) for t in self.theta]
-        return layer_gate(self.n_wires, gates) @ x
+        return self.gate @ x
 
 
-class RYLayer(nn.Module):
+class RYLayer(nn.Module, UpdateMixin):
     '''
     Rotation around Y axis
     '''
@@ -240,13 +245,18 @@ class RYLayer(nn.Module):
         super().__init__(*args, **kwargs)
         self.n_wires = n_wires
         self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
+        self.gate = None
+        self.update()
+
+    def update(self):
+        gates = [RY(t) for t in self.theta]
+        self.gate = layer_gate(self.n_wires, gates).to(device)
 
     def forward(self, x):
-        gates = [RY(t) for t in self.theta]
-        return layer_gate(self.n_wires, gates) @ x
+        return self.gate @ x
 
 
-class RZLayer(nn.Module):
+class RZLayer(nn.Module, UpdateMixin):
     '''
     Rotation around Z axis
     '''
@@ -255,13 +265,17 @@ class RZLayer(nn.Module):
         super().__init__(*args, **kwargs)
         self.n_wires = n_wires
         self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
+        self.gate = None
+
+    def update(self):
+        gates = [RZ(t) for t in self.theta]
+        self.gate = layer_gate(self.n_wires, gates).to(device)
 
     def forward(self, x):
-        gates = [RZ(t) for t in self.theta]
-        return layer_gate(self.n_wires, gates) @ x
+        return self.gate @ x
 
 
-class CZRing(nn.Module):
+class CZRing(nn.Module, UpdateMixin):
     '''
     Ring of CZ gates
     '''
@@ -269,13 +283,13 @@ class CZRing(nn.Module):
     def __init__(self, n_wires, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.n_wires = n_wires
+        self.gate = ring_gate(self.n_wires, Z())
 
     def forward(self, x):
-        x = ring_gate(self.n_wires, Z()) @ x
-        return x
+        return self.gate @ x
 
 
-class CNOTRing(nn.Module):
+class CNOTRing(nn.Module, UpdateMixin):
     '''
     Ring of CNOT gates
     '''
@@ -283,13 +297,13 @@ class CNOTRing(nn.Module):
     def __init__(self, n_wires, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.n_wires = n_wires
+        self.gate = ring_gate(self.n_wires, X())
 
     def forward(self, x):
-        x = ring_gate(self.n_wires, X()) @ x
-        return x
+        return self.gate @ x
 
 
-class CRXRing(nn.Module):
+class CRXRing(nn.Module, UpdateMixin):
     '''
     Ring of CRX gates
     '''
@@ -298,14 +312,18 @@ class CRXRing(nn.Module):
         super().__init__(*args, **kwargs)
         self.n_wires = n_wires
         self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
+        self.gate = None
+        self.update()
+
+    def update(self):
+        gates = [RX(t) for t in self.theta]
+        self.gate = ring_gate(self.n_wires, gates)
 
     def forward(self, x):
-        gates = [RX(t) for t in self.theta]
-        x = ring_gate(self.n_wires, gates) @ x
-        return x
+        return self.gate @ x
 
 
-class CRZRing(nn.Module):
+class CRZRing(nn.Module, UpdateMixin):
     '''
     Ring of CRZ gates
     '''
@@ -314,14 +332,18 @@ class CRZRing(nn.Module):
         super().__init__(*args, **kwargs)
         self.n_wires = n_wires
         self.theta = nn.Parameter(torch.rand((self.n_wires, 1)))
+        self.gate = None
+        self.update()
+
+    def update(self):
+        gates = [RZ(t) for t in self.theta]
+        self.gate = ring_gate(self.n_wires, gates)
 
     def forward(self, x):
-        gates = [RZ(t) for t in self.theta]
-        x = ring_gate(self.n_wires, gates) @ x
-        return x
+        return self.gate @ x
 
 
-class CRXAllToAll(nn.Module):
+class CRXAllToAll(nn.Module, UpdateMixin):
     '''
     All-to-all CRX gates
     '''
@@ -331,14 +353,18 @@ class CRXAllToAll(nn.Module):
         self.n_wires = n_wires
         n_params = self.n_wires * (self.n_wires - 1)
         self.theta = nn.Parameter(torch.rand((n_params, 1)))
+        self.gate = None
+        self.update()
+
+    def update(self):
+        gates = [RX(t) for t in self.theta]
+        self.gate = a2a_gate(self.n_wires, gates)
 
     def forward(self, x):
-        gates = [RX(t) for t in self.theta]
-        x = a2a_gate(self.n_wires, gates) @ x
-        return x
+        return self.gate @ x
 
 
-class CRZAllToAll(nn.Module):
+class CRZAllToAll(nn.Module, UpdateMixin):
     '''
     All-to-all CRZ gates
     '''
@@ -348,14 +374,18 @@ class CRZAllToAll(nn.Module):
         self.n_wires = n_wires
         n_params = self.n_wires * (self.n_wires - 1)
         self.theta = nn.Parameter(torch.rand((n_params, 1)))
+        self.gate = None
+        self.update()
+
+    def update(self):
+        gates = [RZ(t) for t in self.theta]
+        self.gate = a2a_gate(self.n_wires, gates)
 
     def forward(self, x):
-        gates = [RZ(t) for t in self.theta]
-        x = a2a_gate(self.n_wires, gates) @ x
-        return x
+        return self.gate @ x
 
 
-class Circuit(nn.Module):
+class Circuit(nn.Module, UpdateMixin):
     '''
     Simulated quantum circuit
     '''
@@ -388,8 +418,12 @@ class Circuit(nn.Module):
             x = layer(x)
         return x
 
+    def update(self):
+        for layer in self.layers:
+            layer.update()
 
-class HamiltonianClassifier(nn.Module, KWArgsMixin):
+
+class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     '''
     Simulated classification based on a quantum Hamiltonian
     '''
@@ -406,6 +440,10 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin):
         self.n_wires = (emb_dim - 1).bit_length()
         self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
         KWArgsMixin.__init__(self, emb_dim=emb_dim, **kwargs)
+        self.update()
+
+    def update(self):
+        self.circuit.update()
 
     def forward(self, x, lengths):
         '''
@@ -451,53 +489,61 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Training test
-    # emb_dim = 300
-    # x = torch.rand((256, 10, emb_dim)).type(torch.complex64).to(device)
-    # model = HamiltonianClassifier(emb_dim=emb_dim, gates=['rx', 'ry', 'cz'], n_reps=2)
-    # model = model.to(device)
-    # print(model(x))
-    # optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    emb_dim = 300
+    x = torch.rand((256, 10, emb_dim)).type(torch.complex64).to(device)
+    lengths = torch.randint(1, 10, (256,)).to(device)
+    model = HamiltonianClassifier(emb_dim=emb_dim, gates=[
+                                  'rx', 'ry', 'rz'], hamiltonian='pure', n_reps=2)
+    model.to(device)
+    print(model(x, lengths))
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
-    # for i in range(2000):
-    #     optimizer.zero_grad()
-    #     output, _ = model(x)
-    #     loss = torch.mean((output - 0) ** 2).real
-    #     print(loss)
-    #     loss.backward()
-    #     # Print gradient norm
-    #     print(f'Gradient norm: {torch.norm(torch.stack([torch.norm(p.grad) for p in model.parameters()]))}')
-    #     optimizer.step()
+    for i in range(2000):
+        optimizer.zero_grad()
+        output, _ = model(x, lengths)
+        loss = torch.mean(output).real
+        print(loss)
+        loss.backward()
+        # Print gradient norm
+        print(f'Gradient norm: {torch.norm(torch.stack(
+            [torch.norm(p.grad) for p in model.parameters()]))}')
+        for param in model.parameters():
+            if param.grad is not None:
+                param.grad.data = param.grad.data.to(param.data.device)
+        optimizer.step()
+        model.update()
 
     # Layer matrix test
-    emb_dim = 5
-    device = 'cpu'
-    circ = Circuit(n_wires=emb_dim, gates=['crx_all_to_all'], n_reps=1)
-    print(circ.matrix())
+    # emb_dim = 5
+    # device = 'cpu'
+    # circ = Circuit(n_wires=emb_dim, gates=['crx_all_to_all'], n_reps=1)
+    # print(circ.matrix())
 
-    import pennylane as qml
+    # import pennylane as qml
 
-    dev = qml.device("default.qubit", wires=emb_dim)
+    # dev = qml.device("default.qubit", wires=emb_dim)
 
-    @qml.qnode(dev)
-    def circuit():
-        # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="all_to_all")
-        # qml.broadcast(qml.RY, wires=range(emb_dim), pattern="single", parameters=circ.layers[1].theta)
-        # qml.broadcast(qml.CZ, wires=range(emb_dim), pattern="ring")
-        # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="ring")
-        wdiff = []
-        for i in range(emb_dim):
-            wdiff += [0] + [-(i+1)]*emb_dim
-        wdiff += [0]
-        for i in range(emb_dim):
-            for j in range(emb_dim):
-                if i != j:
-                    w_index = (i * emb_dim + j) - \
-                        (i * emb_dim + j) // (emb_dim + 1) - 1
-                    qml.CRX(circ.layers[0].theta[w_index], wires=[i, j])
+    # @qml.qnode(dev)
+    # def circuit():
+    #     # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="all_to_all")
+    #     # qml.broadcast(qml.RY, wires=range(emb_dim), pattern="single", parameters=circ.layers[1].theta)
+    #     # qml.broadcast(qml.CZ, wires=range(emb_dim), pattern="ring")
+    #     # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="ring")
+    #     wdiff = []
+    #     for i in range(emb_dim):
+    #         wdiff += [0] + [-(i+1)]*emb_dim
+    #     wdiff += [0]
+    #     for i in range(emb_dim):
+    #         for j in range(emb_dim):
+    #             if i != j:
+    #                 w_index = (i * emb_dim + j) - \
+    #                     (i * emb_dim + j) // (emb_dim + 1) - 1
+    #                 qml.CRX(circ.layers[0].theta[w_index], wires=[i, j])
 
-        return qml.state()
-    print(qml.matrix(circuit)())
+    #     return qml.state()
+    # print(qml.matrix(circuit)())
     # qml.draw_mpl(circuit)()
     # plt.show()

@@ -7,3 +7,14 @@ class KWArgsMixin:
     '''
     def __init__(self, **kwargs):
         self.kwargs = kwargs
+
+
+class UpdateMixin:
+    '''
+    Adds an update method to the class
+    '''
+    def update(self):
+        '''
+        To be implemented by the subclass
+        '''
+        pass
