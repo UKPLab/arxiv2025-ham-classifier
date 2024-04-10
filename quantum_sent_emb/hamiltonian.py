@@ -461,13 +461,12 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         (batch_size), (batch_size, emb_dim)
         '''
         x = x.type(torch.complex64)
-        s = x.mean(dim=1).reshape(-1, self.emb_size)
+        s = x.mean(dim=1).reshape(-1, self.emb_size) # (batch_size, emb_dim)
         s = torch.nn.functional.pad(s, (0, 2**self.n_wires - self.emb_size))
         # Normalize s
         s = s / torch.norm(s, dim=1).view(-1, 1)
 
         # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
-
         if self.hamiltonian == 'pure':
             # This measures pure states
             x = torch.einsum('bsi, bsj -> bij', x, x) / lengths.view(-1, 1, 1)
@@ -481,6 +480,19 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
         x = torch.nn.functional.pad(
             x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
+        x = torch.nn.functional.normalize(x,dim=0)
+
+        # TODO: remove this
+        # import matplotlib.pyplot as plt
+
+        # plt.plot(torch.linalg.eig(x[0]).eigenvalues.real.cpu().numpy(), 'o')
+        # plt.plot(torch.linalg.eig(x[1]).eigenvalues.real.cpu().numpy(), 'o')
+        # plt.plot(torch.linalg.eig(x[2]).eigenvalues.real.cpu().numpy(), 'o')
+        # plt.plot(torch.linalg.eig(x[3]).eigenvalues.real.cpu().numpy(), 'o')
+        # plt.show()
+
+
+
         # Apply self.circuit to sentence
         sent_emb = self.circuit(s)
         x = torch.einsum('bi,bij,jb -> b', sent_emb, x, sent_emb.H).real
