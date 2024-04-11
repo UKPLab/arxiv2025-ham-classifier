@@ -446,7 +446,9 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Next power of 2 of log(emb_size)
         self.n_wires = (emb_dim - 1).bit_length()
         self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
-        KWArgsMixin.__init__(self, emb_dim=emb_dim, **kwargs)
+        self.h_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
+        # self.h0 = self.h_param.triu() + self.h_param.triu(1).H
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, hamiltonian=hamiltonian, **kwargs)
         self.update()
 
     def update(self):
@@ -480,6 +482,9 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
         x = torch.nn.functional.pad(
             x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
+        # Add bias
+        h0 = self.h_param.triu() + self.h_param.triu(1).H
+        x = x + h0
         x = torch.nn.functional.normalize(x,dim=0)
 
         # TODO: remove this
@@ -496,10 +501,11 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Apply self.circuit to sentence
         sent_emb = self.circuit(s)
         x = torch.einsum('bi,bij,jb -> b', sent_emb, x, sent_emb.H).real
-        x = nn.functional.sigmoid(x)
+        # x = nn.functional.sigmoid(x)
         return x, sent_emb
 
     def get_n_params(self):
+        # TODO: update with H0 parameters
         all_params = sum(p.numel()
                          for p in self.parameters() if p.requires_grad)
         n_params = {'n_all_params': all_params}
