@@ -210,6 +210,20 @@ def a2a_gate(n_wires, gate):
 
     return U
 
+class ILayer(nn.Module, UpdateMixin):
+    '''
+    Identity layer
+    '''
+
+    def __init__(self, n_wires, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.n_wires = n_wires
+        self.gate = I(self.n_wires)
+
+    def forward(self, x):
+        return self.gate @ x
+
+
 
 class RXLayer(nn.Module, UpdateMixin):
     '''
@@ -397,7 +411,7 @@ class Circuit(nn.Module, UpdateMixin):
         self.n_wires = n_wires
         # 1-qubit gates are applied to each qubit
         # 2-qubit gates are applied in ring configuration
-        c2g = {'rx': RXLayer, 'ry': RYLayer, 'rz': RZLayer, 'cz_ring': CZRing,
+        c2g = {'i': ILayer, 'rx': RXLayer, 'ry': RYLayer, 'rz': RZLayer, 'cz_ring': CZRing,
                'cnot_ring': CNOTRing, 'crx_ring': CRXRing, 'crz_ring': CRZRing,
                'crx_all_to_all': CRXAllToAll, 'crz_all_to_all': CRZAllToAll}
         self.layers = []
@@ -430,12 +444,17 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     Simulated classification based on a quantum Hamiltonian
     '''
 
-    def __init__(self, emb_dim, hamiltonian, circ_in, bias, pos_enc, max_len=300, *args, **kwargs) -> None:
+    def __init__(self, emb_dim, hamiltonian, circ_in, 
+                 bias, pos_enc, batch_norm,
+                 max_len=300, *args, **kwargs) -> None:
         '''
         emb_dim: size of the embedding
         hamiltonian: 'pure' or 'mixed'
         circ_in: 'sentence' or 'zeros'
         bias: 'matrix', 'vector' or None
+        pos_enc: 'learned' or None
+        batch_norm: bool
+        max_len: maximum sentence length
         '''
         super().__init__()
         self.emb_size = emb_dim
@@ -444,25 +463,34 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         self.bias = bias
         self.max_len = max_len
         self.pos_enc = pos_enc
-        # Next power of 2 of log(emb_size)
-        self.n_wires = (emb_dim - 1).bit_length()
+        self.n_wires = (emb_dim - 1).bit_length() # Next power of 2 of log(emb_size)
         self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
-
+        if batch_norm:
+            self.batch_norm = nn.BatchNorm1d(1)
+        else:
+            self.batch_norm = None
+        
         if bias == 'matrix':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
         elif bias == 'vector':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 1)), )
         
-        # if pos_enc == 'exp':
-        #     self.pos_param = nn.Parameter(torch.rand((1,))),
         if pos_enc == 'learned':
-            self.pos_param = nn.Parameter(torch.rand((max_len, 1)), )
+            self.pos_param = nn.Parameter(torch.rand((max_len))).type(torch.complex64)
 
-        KWArgsMixin.__init__(self, emb_dim=emb_dim, hamiltonian=hamiltonian, **kwargs)
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, hamiltonian=hamiltonian, circ_in=circ_in, 
+                 bias=bias, pos_enc=pos_enc, batch_norm=batch_norm,
+                 max_len=max_len, **kwargs)
         self.update()
 
     def update(self):
         self.circuit.update()
+
+    def to(self, device):
+        super().to(device)
+        self.bias_param = self.bias_param.to(device)
+        self.pos_param = self.pos_param.to(device)
+        return self
 
     def forward(self, x, lengths):
         '''
@@ -481,19 +509,20 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         elif self.circ_in == 'zeros': # Zero state
             s = torch.zeros((x.shape[0], 2**self.n_wires), dtype=torch.complex64).to(device)
             s[:, 0] = 1
+        else:
+            raise ValueError(f'Unknown circuit input {self.circ_in}')
         
         # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
         if self.hamiltonian == 'pure':
             # Build hamiltonians
-            x = torch.einsum('bsi, bsj -> bsij', x, x) 
-            # Add positional encoding
             if self.pos_enc == 'learned':
-                pos_enc = self.pos_param[:x.shape[1]]
-                # TODO: make sure this works
-                x = x * pos_enc.view(1, -1, 1, 1)
-            # Collapse with mean
-            x = torch.sum(x, dim=1) / lengths.view(-1, 1, 1)
-                
+                pos_enc = self.pos_param[:x.shape[1]].type(torch.complex64)
+                x = torch.einsum('s, bsi, bsj -> bij', pos_enc, x, x) / lengths.view(-1, 1, 1)
+            elif self.pos_enc == None:
+                x = torch.einsum('bsi, bsj -> bij', x, x) / lengths.view(-1, 1, 1)
+            else:
+                raise ValueError(f'Unknown positional encoding {self.pos_enc}')
+
         elif self.hamiltonian == 'mixed':
             # This measures mixed states
             x = torch.sum(x, dim=1)
@@ -513,17 +542,22 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             h0 = self.bias_param @ self.bias_param.T
         elif self.bias == None:
             h0 = torch.zeros_like(x[0])
+        else:
+            raise ValueError(f'Unknown bias {self.bias}')
         x = x + h0
         x = torch.nn.functional.normalize(x,dim=0)
 
         # Apply self.circuit to sentence
         circ_out = self.circuit(s)
         x = torch.einsum('bi,bij,jb -> b', circ_out, x, circ_out.H).real
-        # x = nn.functional.sigmoid(x)
+
+        if self.batch_norm:
+            x = self.batch_norm(x.view(-1, 1)).view(-1)
+            x = nn.functional.sigmoid(x)
+
         return x, circ_out
 
     def get_n_params(self):
-        # TODO: update with pos_enc params
         bias_params = 0
         if self.bias == 'matrix':
             bias_params2 = self.bias_param.numel() 
@@ -531,15 +565,21 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         elif self.bias == 'vector':
             bias_params = self.bias_param.numel()
 
+        pos_enc_params = 0
+        if self.pos_enc == 'learned':
+            pos_enc_params = self.pos_param.numel()
+
         circ_params = sum(p.numel() for p in self.circuit.parameters() if p.requires_grad)
-        all_params = circ_params + bias_params
+        all_params = circ_params + bias_params + pos_enc_params
         n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params,
-            'n_all_params': all_params}
+                    'n_pos_enc_params': pos_enc_params, 'n_all_params': all_params}
         return n_params
 
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
+    from tqdm import tqdm
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Training test
@@ -548,12 +588,13 @@ if __name__ == '__main__':
     lengths = torch.randint(1, 10, (256,)).to(device)
     model = HamiltonianClassifier(emb_dim=emb_dim, gates=[
                                   'rx', 'ry', 'rz'], hamiltonian='pure', circ_in='zeros', 
+                                    batch_norm=True,
                                   pos_enc='learned', bias='vector', n_reps=1)
     model.to(device)
     print(model(x, lengths))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
-    for i in range(2000):
+    for i in tqdm(range(2000)):
         optimizer.zero_grad()
         output, _ = model(x, lengths)
         loss = torch.mean(output).real

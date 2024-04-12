@@ -42,14 +42,19 @@ def build_dataset(config, device, shuffle=True, eval_batch_size=256):
     return train_loader, dev_loader, test_loader
 
 def build_model(arch, config):
-    if arch == 'ham_mean':
+    if arch == 'ham':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for hamiltonian model'
         # assert hasattr(config,'hamiltonian'), 'Hamiltonian type must be provided for hamiltonian model'
         assert hasattr(config,'circ_in'), 'Type of circ input must be provided for hamiltonian model'
         assert hasattr(config,'bias'), 'Bias type must be provided for hamiltonian model'
         assert hasattr(config,'gates'), 'Gates must be provided for hamiltonian model'
         assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for hamiltonian model'
-        return HamiltonianClassifier(emb_dim=config.emb_dim, hamiltonian='pure', circ_in=config.circ_in, bias=config.bias, gates=config.gates, n_reps=config.n_reps)
+        assert hasattr(config,'pos_enc'), 'Positional encoding must be provided for hamiltonian model'
+        assert hasattr(config,'batch_norm'), 'Batch normalization must be provided for hamiltonian model'
+
+        return HamiltonianClassifier(emb_dim=config.emb_dim, hamiltonian='pure', circ_in=config.circ_in, 
+                                     bias=config.bias, gates=config.gates, n_reps=config.n_reps,
+                                     pos_enc=config.pos_enc, batch_norm=config.batch_norm)
     elif arch == 'ham_weight':
         raise NotImplementedError('Weighted Hamiltonian model not yet implemented')
     elif arch == 'baseline':
