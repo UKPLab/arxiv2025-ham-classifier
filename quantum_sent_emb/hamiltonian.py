@@ -97,12 +97,9 @@ def _distant_control(control, target, n_wires, gate):
     '''
     U0 = torch.tensor([1], device=device)
     U1 = torch.tensor([1], device=device)
-    assert control < n_wires, f'Expected control < n_wires, got {
-        control} and {n_wires}'
-    assert target < n_wires, f'Expected target < n_wires, got {
-        target} and {n_wires}'
-    assert control != target, f'Expected control != target, got {
-        control} and {target}'
+    assert control < n_wires, f'Expected control < n_wires, got {control} and {n_wires}'
+    assert target < n_wires, f'Expected target < n_wires, got {target} and {n_wires}'
+    assert control != target, f'Expected control != target, got {control} and {target}'
     for i in range(n_wires):
         if i == control:
             U0 = torch.kron(U0, torch.tensor([[1, 0], [0, 0]], device=device))
@@ -139,8 +136,7 @@ def layer_gate(n_wires, gate):
     Accepts a single gate or a list of gates
     '''
     if isinstance(gate, list):
-        assert len(gate) == n_wires, f'Expected {
-            n_wires} gates, got {len(gate)}'
+        assert len(gate) == n_wires, f'Expected {n_wires} gates, got {len(gate)}'
         U = gate[0]
         for g in gate[1:]:
             U = torch.kron(U, g)
@@ -171,8 +167,7 @@ def ring_gate(n_wires, gate):
     if not isinstance(gate, list):
         gate = [gate] * n_wires
     else:
-        assert len(gate) == n_wires, f'Expected {
-            n_wires} gates, got {len(gate)}'
+        assert len(gate) == n_wires, f'Expected {n_wires} gates, got {len(gate)}'
 
     U = I(n_wires)
     for i in range(n_wires):
@@ -435,19 +430,34 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     Simulated classification based on a quantum Hamiltonian
     '''
 
-    def __init__(self, emb_dim, hamiltonian, *args, **kwargs) -> None:
+    def __init__(self, emb_dim, hamiltonian, circ_in, bias, pos_enc, max_len=300, *args, **kwargs) -> None:
         '''
         emb_dim: size of the embedding
         hamiltonian: 'pure' or 'mixed'
+        circ_in: 'sentence' or 'zeros'
+        bias: 'matrix', 'vector' or None
         '''
         super().__init__()
         self.emb_size = emb_dim
         self.hamiltonian = hamiltonian
+        self.circ_in = circ_in
+        self.bias = bias
+        self.max_len = max_len
+        self.pos_enc = pos_enc
         # Next power of 2 of log(emb_size)
         self.n_wires = (emb_dim - 1).bit_length()
         self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
-        self.h_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
-        # self.h0 = self.h_param.triu() + self.h_param.triu(1).H
+
+        if bias == 'matrix':
+            self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
+        elif bias == 'vector':
+            self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 1)), )
+        
+        # if pos_enc == 'exp':
+        #     self.pos_param = nn.Parameter(torch.rand((1,))),
+        if pos_enc == 'learned':
+            self.pos_param = nn.Parameter(torch.rand((max_len, 1)), )
+
         KWArgsMixin.__init__(self, emb_dim=emb_dim, hamiltonian=hamiltonian, **kwargs)
         self.update()
 
@@ -463,15 +473,27 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         (batch_size), (batch_size, emb_dim)
         '''
         x = x.type(torch.complex64)
-        s = x.mean(dim=1).reshape(-1, self.emb_size) # (batch_size, emb_dim)
-        s = torch.nn.functional.pad(s, (0, 2**self.n_wires - self.emb_size))
-        # Normalize s
-        s = s / torch.norm(s, dim=1).view(-1, 1)
-
+        
+        if self.circ_in == 'sentence': # Mean of sentence
+            s = x.mean(dim=1).reshape(-1, self.emb_size) # (batch_size, emb_dim)
+            s = torch.nn.functional.pad(s, (0, 2**self.n_wires - self.emb_size))
+            s = s / torch.norm(s, dim=1).view(-1, 1)
+        elif self.circ_in == 'zeros': # Zero state
+            s = torch.zeros((x.shape[0], 2**self.n_wires), dtype=torch.complex64).to(device)
+            s[:, 0] = 1
+        
         # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
         if self.hamiltonian == 'pure':
-            # This measures pure states
-            x = torch.einsum('bsi, bsj -> bij', x, x) / lengths.view(-1, 1, 1)
+            # Build hamiltonians
+            x = torch.einsum('bsi, bsj -> bsij', x, x) 
+            # Add positional encoding
+            if self.pos_enc == 'learned':
+                pos_enc = self.pos_param[:x.shape[1]]
+                # TODO: make sure this works
+                x = x * pos_enc.view(1, -1, 1, 1)
+            # Collapse with mean
+            x = torch.sum(x, dim=1) / lengths.view(-1, 1, 1)
+                
         elif self.hamiltonian == 'mixed':
             # This measures mixed states
             x = torch.sum(x, dim=1)
@@ -482,33 +504,37 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
         x = torch.nn.functional.pad(
             x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
+
         # Add bias
-        h0 = self.h_param.triu() + self.h_param.triu(1).H
+        if self.bias == 'matrix':            
+            h0 = self.bias_param.triu() + self.bias_param.triu(1).H
+        elif self.bias == 'vector':
+            # Outer product of bias_param
+            h0 = self.bias_param @ self.bias_param.T
+        elif self.bias == None:
+            h0 = torch.zeros_like(x[0])
         x = x + h0
         x = torch.nn.functional.normalize(x,dim=0)
 
-        # TODO: remove this
-        # import matplotlib.pyplot as plt
-
-        # plt.plot(torch.linalg.eig(x[0]).eigenvalues.real.cpu().numpy(), 'o')
-        # plt.plot(torch.linalg.eig(x[1]).eigenvalues.real.cpu().numpy(), 'o')
-        # plt.plot(torch.linalg.eig(x[2]).eigenvalues.real.cpu().numpy(), 'o')
-        # plt.plot(torch.linalg.eig(x[3]).eigenvalues.real.cpu().numpy(), 'o')
-        # plt.show()
-
-
-
         # Apply self.circuit to sentence
-        sent_emb = self.circuit(s)
-        x = torch.einsum('bi,bij,jb -> b', sent_emb, x, sent_emb.H).real
+        circ_out = self.circuit(s)
+        x = torch.einsum('bi,bij,jb -> b', circ_out, x, circ_out.H).real
         # x = nn.functional.sigmoid(x)
-        return x, sent_emb
+        return x, circ_out
 
     def get_n_params(self):
-        # TODO: update with H0 parameters
-        all_params = sum(p.numel()
-                         for p in self.parameters() if p.requires_grad)
-        n_params = {'n_all_params': all_params}
+        # TODO: update with pos_enc params
+        bias_params = 0
+        if self.bias == 'matrix':
+            bias_params2 = self.bias_param.numel() 
+            bias_params = int(bias_params2**0.5) * (int(bias_params2**0.5) - 1) // 2
+        elif self.bias == 'vector':
+            bias_params = self.bias_param.numel()
+
+        circ_params = sum(p.numel() for p in self.circuit.parameters() if p.requires_grad)
+        all_params = circ_params + bias_params
+        n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params,
+            'n_all_params': all_params}
         return n_params
 
 
@@ -521,7 +547,8 @@ if __name__ == '__main__':
     x = torch.rand((256, 10, emb_dim)).type(torch.complex64).to(device)
     lengths = torch.randint(1, 10, (256,)).to(device)
     model = HamiltonianClassifier(emb_dim=emb_dim, gates=[
-                                  'rx', 'ry', 'rz'], hamiltonian='pure', n_reps=2)
+                                  'rx', 'ry', 'rz'], hamiltonian='pure', circ_in='zeros', 
+                                  pos_enc='learned', bias='vector', n_reps=1)
     model.to(device)
     print(model(x, lengths))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
@@ -532,12 +559,11 @@ if __name__ == '__main__':
         loss = torch.mean(output).real
         print(loss)
         loss.backward()
-        # Print gradient norm
-        print(f'Gradient norm: {torch.norm(torch.stack(
-            [torch.norm(p.grad) for p in model.parameters()]))}')
         for param in model.parameters():
             if param.grad is not None:
                 param.grad.data = param.grad.data.to(param.data.device)
+        # Print gradient norm
+        print(f'Gradient norm: {torch.norm(torch.stack([torch.norm(p.grad) for p in model.parameters()]))}')
         optimizer.step()
         model.update()
 

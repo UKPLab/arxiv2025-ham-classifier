@@ -44,10 +44,12 @@ def build_dataset(config, device, shuffle=True, eval_batch_size=256):
 def build_model(arch, config):
     if arch == 'ham_mean':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for hamiltonian model'
-        assert hasattr(config,'hamiltonian'), 'Hamiltonian type must be provided for hamiltonian model'
+        # assert hasattr(config,'hamiltonian'), 'Hamiltonian type must be provided for hamiltonian model'
+        assert hasattr(config,'circ_in'), 'Type of circ input must be provided for hamiltonian model'
+        assert hasattr(config,'bias'), 'Bias type must be provided for hamiltonian model'
         assert hasattr(config,'gates'), 'Gates must be provided for hamiltonian model'
         assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for hamiltonian model'
-        return HamiltonianClassifier(emb_dim=config.emb_dim, hamiltonian=config.hamiltonian, gates=config.gates, n_reps=config.n_reps)
+        return HamiltonianClassifier(emb_dim=config.emb_dim, hamiltonian='pure', circ_in=config.circ_in, bias=config.bias, gates=config.gates, n_reps=config.n_reps)
     elif arch == 'ham_weight':
         raise NotImplementedError('Weighted Hamiltonian model not yet implemented')
     elif arch == 'baseline':
@@ -210,7 +212,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
                            "total epoch time": total_time})
                 
                 # Check if the current validation loss is better than the previous best loss
-                if dev_loss < best_dev_loss * 0.999: # 0.1% improvement
+                if dev_loss < best_dev_loss:
                     best_dev_loss = dev_loss
                     counter = 0  # Reset the counter since there's improvement
                 else:
