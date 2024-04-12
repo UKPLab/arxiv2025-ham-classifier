@@ -91,7 +91,7 @@ def main():  # pragma: no cover
         os.makedirs(model_dir)
 
     # torch_baseline, torch_quantum, lambeq
-    train = build_train(arch, model_dir, emb_path)
+    train = build_train(arch, model_dir, emb_path, patience=10)
 
     # Train the network
     wandb.agent(sweep_id, train, count=50)

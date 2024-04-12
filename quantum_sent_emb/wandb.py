@@ -217,7 +217,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
                            "total epoch time": total_time})
                 
                 # Check if the current validation loss is better than the previous best loss
-                if dev_loss < best_dev_loss:
+                if dev_loss < best_dev_loss * 0.99:
                     best_dev_loss = dev_loss
                     counter = 0  # Reset the counter since there's improvement
                 else:
