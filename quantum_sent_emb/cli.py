@@ -10,12 +10,12 @@ def main():  # pragma: no cover
 
     Example:
     ```
-    python -m quantum_sent_emb --arch ham_mean
+    python -m quantum_sent_emb --arch ham
     ```
     """
     # Add arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--arch', type=str, default=None, required=True, help='Architecture to train. Options: ham_mean, ham_weight, baseline')
+    parser.add_argument('--arch', type=str, default=None, required=True, help='Architecture to train. Options: ham, baseline')
     parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
     args = parser.parse_args()
     arch = args.arch
@@ -35,12 +35,12 @@ def main():  # pragma: no cover
 
     sweep_config['metric'] = metric
 
-    global_params = {
+    global_params = { 
         'optimizer': {
-            'values': ['adam']
+            'value': 'adam'
             },
         'learning_rate': {
-            'values': [1e-2, 1e-3, 1e-4, 1e-5]
+            'values': [1e-2, 1e-3, 1e-4]
             },
         'batch_size': {
             'values': [64,128,256]
@@ -49,22 +49,32 @@ def main():  # pragma: no cover
             'value': 30
             },
         'emb_dim': {
-            'values': [300] 
+            'value': 300 
             },
-        'hamiltonian': {
-            'values': ['pure'] # 'mixed'
+        'circ_in': {
+            'values': ['sentence','zeros']
+            },
+        'bias': {
+            'values': ['matrix','vector',None]
+            },
+        'pos_enc': {
+            'values': ['learned',None]
+            },
+        'batch_norm': {
+            'values': [False] #, True]
             },
         'gates': {
-            'values': [['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
+            'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
                        ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'], # Circuit 6 of Sim et al 2019
-                       ['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
-                       ['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
+                       #['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
+                       #['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
                        ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
                        ['rx', 'ry','rz'], # Control circuit without entanglement
+                       ['i'] # Control empty circuit 
                        ]
             },
         'n_reps': {
-            'values': [16, 32, 64]
+            'values': [8, 16, 32]
             },
         'vocab_size' : {
             'values': [None]
