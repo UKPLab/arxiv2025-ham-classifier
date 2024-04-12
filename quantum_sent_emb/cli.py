@@ -37,7 +37,7 @@ def main():  # pragma: no cover
 
     global_params = {
         'optimizer': {
-            'values': ['adam', 'sgd']
+            'values': ['adam']
             },
         'learning_rate': {
             'values': [1e-2, 1e-3, 1e-4, 1e-5]
@@ -64,7 +64,7 @@ def main():  # pragma: no cover
                        ]
             },
         'n_reps': {
-            'values': [16, 64, 256]
+            'values': [16, 32, 64]
             },
         'vocab_size' : {
             'values': [None]
