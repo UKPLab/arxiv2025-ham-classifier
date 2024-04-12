@@ -488,8 +488,12 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
     def to(self, device):
         super().to(device)
-        self.bias_param = self.bias_param.to(device)
-        self.pos_param = self.pos_param.to(device)
+        if self.batch_norm:
+            self.batch_norm = self.batch_norm.to(device)
+        if self.bias == 'matrix' or self.bias == 'vector':
+            self.bias_param = self.bias_param.to(device)
+        if self.pos_enc == 'learned':
+            self.pos_param = self.pos_param.to(device)
         return self
 
     def forward(self, x, lengths):
