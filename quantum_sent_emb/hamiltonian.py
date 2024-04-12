@@ -569,10 +569,14 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         if self.pos_enc == 'learned':
             pos_enc_params = self.pos_param.numel()
 
+        batch_norm_params = 0
+        if self.batch_norm:
+            batch_norm_params = sum(p.numel() for p in self.batch_norm.parameters() if p.requires_grad)
+
         circ_params = sum(p.numel() for p in self.circuit.parameters() if p.requires_grad)
-        all_params = circ_params + bias_params + pos_enc_params
+        all_params = circ_params + bias_params + pos_enc_params + batch_norm_params
         n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params,
-                    'n_pos_enc_params': pos_enc_params, 'n_all_params': all_params}
+                    'n_batch_norm_params': batch_norm_params, 'n_pos_enc_params': pos_enc_params, 'n_all_params': all_params,}
         return n_params
 
 
