@@ -61,7 +61,7 @@ def main():  # pragma: no cover
             'values': ['learned',None]
             },
         'batch_norm': {
-            'value': False #, True]
+            'value': True #, True]
             },
         'gates': {
             'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2

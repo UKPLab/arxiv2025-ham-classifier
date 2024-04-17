@@ -127,8 +127,9 @@ def build_train(arch, model_dir, emb_path, patience=5):
             train_loader, test_loader, dev_loader = all_datasets
 
             # Define loss function and optimizer
-            criterion = nn.MSELoss()
-            
+            # criterion = nn.MSELoss()
+            criterion = nn.BCELoss()
+
             print('Training...')
             total_time = 0
             train_time = 0
