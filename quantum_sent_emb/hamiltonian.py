@@ -451,7 +451,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         emb_dim: size of the embedding
         hamiltonian: 'pure' or 'mixed'
         circ_in: 'sentence' or 'zeros'
-        bias: 'matrix', 'vector' or None
+        bias: 'matrix', 'vector', 'diag', 'single' or None
         pos_enc: 'learned' or None
         batch_norm: bool
         max_len: maximum sentence length
@@ -472,9 +472,10 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         
         if bias == 'matrix':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
-        elif bias == 'vector':
+        elif bias == 'vector' or bias == 'diag':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 1)), )
-        
+        elif bias == 'single':
+            self.bias_param = nn.Parameter(torch.rand((1, 1)), )
         if pos_enc == 'learned':
             self.pos_param = nn.Parameter(torch.rand((max_len))).type(torch.complex64)
 
@@ -539,12 +540,15 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
 
         # Add bias
-        if self.bias == 'matrix':            
+        if self.bias == 'matrix': # Full matrix
             h0 = self.bias_param.triu() + self.bias_param.triu(1).H
-        elif self.bias == 'vector':
-            # Outer product of bias_param
+        elif self.bias == 'vector': # Outer product of vector
             h0 = self.bias_param @ self.bias_param.T
-        elif self.bias == None:
+        elif self.bias == 'diag': # Diagonal matrix
+            h0 = torch.diag(self.bias_param.view(-1))
+        elif self.bias == 'single': # Constant * Identity
+            h0 = self.bias_param * I(self.n_wires)
+        elif self.bias == None: # No bias
             h0 = torch.zeros_like(x[0])
         else:
             raise ValueError(f'Unknown bias {self.bias}')
@@ -557,7 +561,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
         if self.batch_norm:
             x = self.batch_norm(x.view(-1, 1)).view(-1)
-            x = nn.functional.sigmoid(x)
+        x = nn.functional.sigmoid(x)
 
         return x, circ_out
 
@@ -597,7 +601,7 @@ if __name__ == '__main__':
     model = HamiltonianClassifier(emb_dim=emb_dim, gates=[
                                   'rx', 'ry', 'rz'], hamiltonian='pure', circ_in='zeros', 
                                     batch_norm=True,
-                                  pos_enc='learned', bias='vector', n_reps=1)
+                                  pos_enc='learned', bias='single', n_reps=1)
     model.to(device)
     print(model(x, lengths))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)

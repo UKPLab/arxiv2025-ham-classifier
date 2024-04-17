@@ -55,13 +55,13 @@ def main():  # pragma: no cover
             'values': ['sentence','zeros']
             },
         'bias': {
-            'values': ['matrix','vector',None]
+            'values': ['matrix', 'diag', 'single',None]
             },
         'pos_enc': {
             'values': ['learned',None]
             },
         'batch_norm': {
-            'value': True #, True]
+            'values': [True, False]
             },
         'gates': {
             'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
@@ -70,7 +70,7 @@ def main():  # pragma: no cover
                        #['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
                        ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
                        ['rx', 'ry','rz'], # Control circuit without entanglement
-                       ['i'] # Control empty circuit 
+                       #['i'] # Control empty circuit 
                        ]
             },
         'n_reps': {
@@ -94,4 +94,4 @@ def main():  # pragma: no cover
     train = build_train(arch, model_dir, emb_path, patience=5)
 
     # Train the network
-    wandb.agent(sweep_id, train, count=50)
+    wandb.agent(sweep_id, train, count=100)
