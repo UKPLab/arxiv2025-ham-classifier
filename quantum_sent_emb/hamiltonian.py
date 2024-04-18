@@ -224,7 +224,6 @@ class ILayer(nn.Module, UpdateMixin):
         return self.gate @ x
 
 
-
 class RXLayer(nn.Module, UpdateMixin):
     '''
     Rotation around X axis 
@@ -497,7 +496,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             self.pos_param = self.pos_param.to(device)
         return self
 
-    def forward(self, x, lengths):
+    def forward(self, x, seq_lengths):
         '''
         x: (batch_size, sent_len, emb_dim)
         lengths: (batch_size)
@@ -522,16 +521,16 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             # Build hamiltonians
             if self.pos_enc == 'learned':
                 pos_enc = self.pos_param[:x.shape[1]].type(torch.complex64)
-                x = torch.einsum('s, bsi, bsj -> bij', pos_enc, x, x) / lengths.view(-1, 1, 1)
+                x = torch.einsum('s, bsi, bsj -> bij', pos_enc, x, x) / seq_lengths.view(-1, 1, 1)
             elif self.pos_enc == None:
-                x = torch.einsum('bsi, bsj -> bij', x, x) / lengths.view(-1, 1, 1)
+                x = torch.einsum('bsi, bsj -> bij', x, x) / seq_lengths.view(-1, 1, 1)
             else:
                 raise ValueError(f'Unknown positional encoding {self.pos_enc}')
 
         elif self.hamiltonian == 'mixed':
             # This measures mixed states
             x = torch.sum(x, dim=1)
-            x = torch.einsum('bi,bj -> bij', x, x) / lengths.view(-1, 1, 1)
+            x = torch.einsum('bi,bj -> bij', x, x) / seq_lengths.view(-1, 1, 1)
         else:
             raise ValueError(f'Unknown Hamiltonian {self.hamiltonian}')
 

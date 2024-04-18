@@ -148,10 +148,10 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     # Zero the gradients
                     optimizer.zero_grad()
 
-                    inputs, lengths = embedding(data)
+                    inputs, seq_lengths = embedding(data)
 
                     # Forward pass
-                    outputs, _ = model(inputs, lengths)
+                    outputs, _ = model(inputs, seq_lengths)
                     loss = criterion(outputs, labels)
                     cumu_loss += loss.item()
                     cumu_corr += torch.sum((outputs > 0.5) == labels).item() 
@@ -189,10 +189,10 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     for batch in tqdm(dev_loader):
                         data = batch['data']
                         labels = batch['label'].type(torch.float).to(device)
-                        inputs, lengths = embedding(data)
+                        inputs, seq_lengths = embedding(data)
 
                         # Forward pass
-                        outputs, _ = model(inputs, lengths)
+                        outputs, _ = model(inputs, seq_lengths)
                         loss = criterion(outputs, labels)
                         cumu_loss += loss.item()
                         cumu_corr += torch.sum((outputs > 0.5) == labels).item()
@@ -239,10 +239,10 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     data = batch['data']
                     labels = batch['label'].type(torch.float).to(device)
 
-                    inputs, lengths = embedding(data)
+                    inputs, seq_lengths = embedding(data)
 
                     # Forward pass
-                    outputs, _ = model(inputs, lengths)
+                    outputs, _ = model(inputs, seq_lengths)
                     loss = criterion(outputs, labels)
                     cumu_loss += loss.item()    
                     cumu_corr += torch.sum((outputs > 0.5) == labels).item()        
