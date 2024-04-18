@@ -566,20 +566,27 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         return x, circ_out
 
     def get_n_params(self):
-        bias_params = 0
         if self.bias == 'matrix':
             bias_params2 = self.bias_param.numel() 
             bias_params = int(bias_params2**0.5) * (int(bias_params2**0.5) - 1) // 2
-        elif self.bias == 'vector':
+        elif self.bias == 'vector' or self.bias == 'diag':
             bias_params = self.bias_param.numel()
+        elif self.bias == 'single':
+            bias_params = self.bias_param.numel()
+        else:
+            raise ValueError(f'Unknown bias {self.bias}')
 
-        pos_enc_params = 0
         if self.pos_enc == 'learned':
             pos_enc_params = self.pos_param.numel()
+        elif self.pos_enc == None:
+            pos_enc_params = 0
+        else:
+            raise ValueError(f'Unknown positional encoding {self.pos_enc}')
 
-        batch_norm_params = 0
         if self.batch_norm:
             batch_norm_params = sum(p.numel() for p in self.batch_norm.parameters() if p.requires_grad)
+        else:
+            batch_norm_params = 0
 
         circ_params = sum(p.numel() for p in self.circuit.parameters() if p.requires_grad)
         all_params = circ_params + bias_params + pos_enc_params + batch_norm_params
