@@ -63,7 +63,7 @@ def main():  # pragma: no cover
                 'values': ['sentence','zeros']
                 },
             'bias': {
-                'values': ['matrix', 'diag', 'single',None]
+                'values': ['matrix', 'vector', 'diag', 'single',None]
                 },
             'batch_norm': {
                 'values': [True, False]
@@ -77,7 +77,7 @@ def main():  # pragma: no cover
                             #['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
                             #['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
                             ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
-                            ['rx', 'ry','rz'], # Control circuit without entanglement
+                            ['rx', 'ry', 'rz'], # Control circuit without entanglement
                             #['i'] # Control empty circuit 
                             ]
                 },

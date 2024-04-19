@@ -443,7 +443,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     Simulated classification based on a quantum Hamiltonian
     '''
 
-    def __init__(self, emb_dim, hamiltonian, circ_in, 
+    def __init__(self, emb_dim, circ_in, 
                  bias, pos_enc, batch_norm,
                  max_len=300, *args, **kwargs) -> None:
         '''
@@ -457,7 +457,6 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         '''
         super().__init__()
         self.emb_size = emb_dim
-        self.hamiltonian = hamiltonian
         self.circ_in = circ_in
         self.bias = bias
         self.max_len = max_len
@@ -471,14 +470,16 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         
         if bias == 'matrix':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
-        elif bias == 'vector' or bias == 'diag':
+        if bias == 'vector':
+            self.bias_param = nn.Parameter(torch.rand((emb_dim, 1)), )
+        elif bias == 'diag':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 1)), )
         elif bias == 'single':
             self.bias_param = nn.Parameter(torch.rand((1, 1)), )
         if pos_enc == 'learned':
             self.pos_param = nn.Parameter(torch.rand((max_len))).type(torch.complex64)
 
-        KWArgsMixin.__init__(self, emb_dim=emb_dim, hamiltonian=hamiltonian, circ_in=circ_in, 
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, 
                  bias=bias, pos_enc=pos_enc, batch_norm=batch_norm,
                  max_len=max_len, **kwargs)
         self.update()
@@ -517,23 +518,21 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         else:
             raise ValueError(f'Unknown circuit input {self.circ_in}')
         
-        # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
-        if self.hamiltonian == 'pure':
-            # Build hamiltonians
-            if self.pos_enc == 'learned':
-                pos_enc = self.pos_param[:x.shape[1]].type(torch.complex64)
-                x = torch.einsum('s, bsi, bsj -> bij', pos_enc, x, x) / seq_lengths.view(-1, 1, 1)
-            elif self.pos_enc == None:
-                x = torch.einsum('bsi, bsj -> bij', x, x) / seq_lengths.view(-1, 1, 1)
-            else:
-                raise ValueError(f'Unknown positional encoding {self.pos_enc}')
+        # Add vector bias
+        if self.bias == 'vector':
+            batch_bias = [self.bias_param.view(1, -1).repeat(l, 1) for l in seq_lengths]
+            batch_bias = nn.utils.rnn.pad_sequence(batch_bias, batch_first=True)
+            x += batch_bias
 
-        elif self.hamiltonian == 'mixed':
-            # This measures mixed states
-            x = torch.sum(x, dim=1)
-            x = torch.einsum('bi,bj -> bij', x, x) / seq_lengths.view(-1, 1, 1)
+        # Build hamiltonians
+        # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
+        if self.pos_enc == 'learned':
+            pos_enc = self.pos_param[:x.shape[1]].type(torch.complex64)
+            x = torch.einsum('s, bsi, bsj -> bij', pos_enc, x, x) / seq_lengths.view(-1, 1, 1)
+        elif self.pos_enc == None:
+            x = torch.einsum('bsi, bsj -> bij', x, x) / seq_lengths.view(-1, 1, 1)
         else:
-            raise ValueError(f'Unknown Hamiltonian {self.hamiltonian}')
+            raise ValueError(f'Unknown positional encoding {self.pos_enc}')
 
         # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
         x = torch.nn.functional.pad(
@@ -542,8 +541,8 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Add bias
         if self.bias == 'matrix': # Full matrix
             h0 = self.bias_param.triu() + self.bias_param.triu(1).H
-        elif self.bias == 'vector': # Outer product of vector
-            h0 = self.bias_param @ self.bias_param.T
+        elif self.bias == 'vector': # Done before
+            h0 = torch.zeros_like(x[0])
         elif self.bias == 'diag': # Diagonal matrix
             h0 = torch.diag(self.bias_param.view(-1))
         elif self.bias == 'single': # Constant * Identity
@@ -606,9 +605,9 @@ if __name__ == '__main__':
     x = torch.rand((256, 10, emb_dim)).type(torch.complex64).to(device)
     lengths = torch.randint(1, 10, (256,)).to(device)
     model = HamiltonianClassifier(emb_dim=emb_dim, gates=[
-                                  'rx', 'ry', 'rz'], hamiltonian='pure', circ_in='zeros', 
+                                  'rx', 'ry', 'rz'], circ_in='zeros', 
                                     batch_norm=True,
-                                  pos_enc='learned', bias='single', n_reps=1)
+                                  pos_enc='learned', bias='vector', n_reps=1)
     model.to(device)
     print(model(x, lengths))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)

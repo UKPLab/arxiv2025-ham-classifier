@@ -42,6 +42,7 @@ def build_dataset(config, device, shuffle=True, eval_batch_size=256):
         test_dataset, batch_size=eval_batch_size, shuffle=shuffle, num_workers=8)
     return train_loader, dev_loader, test_loader
 
+
 def build_model(arch, config):
     if arch == 'ham':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for hamiltonian model'
@@ -52,7 +53,7 @@ def build_model(arch, config):
         assert hasattr(config,'pos_enc'), 'Positional encoding must be provided for hamiltonian model'
         assert hasattr(config,'batch_norm'), 'Batch normalization must be provided for hamiltonian model'
 
-        return HamiltonianClassifier(emb_dim=config.emb_dim, hamiltonian='pure', circ_in=config.circ_in, 
+        return HamiltonianClassifier(emb_dim=config.emb_dim, circ_in=config.circ_in, 
                                      bias=config.bias, gates=config.gates, n_reps=config.n_reps,
                                      pos_enc=config.pos_enc, batch_norm=config.batch_norm)
     elif arch == 'rnn' or arch == 'lstm':
@@ -80,6 +81,7 @@ def build_optimizer(model, config, momentum=0.9):
         optimizer = torch.optim.Adam(model.parameters(),
                                      lr=learning_rate)
     return optimizer
+
 
 def build_parameters(arch, emb_path, device, config):
     '''
