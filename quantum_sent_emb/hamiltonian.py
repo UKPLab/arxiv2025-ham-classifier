@@ -505,6 +505,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         (batch_size), (batch_size, emb_dim)
         '''
         x = x.type(torch.complex64)
+        seq_lengths = seq_lengths.to(device)
         
         if self.circ_in == 'sentence': # Mean of sentence
             s = x.mean(dim=1).reshape(-1, self.emb_size) # (batch_size, emb_dim)

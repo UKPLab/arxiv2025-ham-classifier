@@ -51,37 +51,52 @@ def main():  # pragma: no cover
         'emb_dim': {
             'value': 300 
             },
-        'circ_in': {
-            'values': ['sentence','zeros']
-            },
-        'bias': {
-            'values': ['matrix', 'diag', 'single',None]
-            },
-        'pos_enc': {
-            'values': ['learned',None]
-            },
-        'batch_norm': {
-            'values': [True, False]
-            },
-        'gates': {
-            'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
-                       ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'], # Circuit 6 of Sim et al 2019
-                       #['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
-                       #['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
-                       ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
-                       ['rx', 'ry','rz'], # Control circuit without entanglement
-                       #['i'] # Control empty circuit 
-                       ]
-            },
-        'n_reps': {
-            'values': [8, 16, 32]
-            },
+
         'vocab_size' : {
             'value': None
             },
 
         }
-    
+    if arch == 'ham':
+        ham_params = {
+            'circ_in': {
+                'values': ['sentence','zeros']
+                },
+            'bias': {
+                'values': ['matrix', 'diag', 'single',None]
+                },
+            'batch_norm': {
+                'values': [True, False]
+                },
+            'pos_enc': {
+                'values': ['learned',None]
+                },
+            'gates': {
+                'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
+                            ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'], # Circuit 6 of Sim et al 2019
+                            #['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
+                            #['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
+                            ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
+                            ['rx', 'ry','rz'], # Control circuit without entanglement
+                            #['i'] # Control empty circuit 
+                            ]
+                },
+            'n_reps': {
+                'values': [8, 16, 32]
+                },
+        }
+        global_params.update(ham_params)
+    if arch == 'rnn' or arch == 'lstm':
+        rnn_params = {
+            'hidden_dim': {
+                'values': [100, 300, 500]
+                },
+            'rnn_layers': {
+                'values': [1, 4, 8]
+                },
+        }
+        global_params.update(rnn_params)
+
     sweep_config['parameters'] = global_params
 
     sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v1")

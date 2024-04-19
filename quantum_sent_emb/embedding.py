@@ -69,8 +69,8 @@ class Embedder(nn.Module, KWArgsMixin):
         text = [sentence.lower() for sentence in text] # Lowercase all words
         indices = [[self._key_to_index[word] if word in self._key_to_index else self._key_to_index['<unk>'] if '<unk>' in self._key_to_index else 0 for word in sentence.split()] for sentence in text]
         indices = [torch.LongTensor(sentence).to(device=self.embedding.weight.device) for sentence in indices]
-        lengths = [len(sentence) for sentence in indices]
-        lengths = torch.tensor(lengths, device=self.embedding.weight.device)
+        seq_lengths = [len(sentence) for sentence in indices]
+        seq_lengths = torch.tensor(seq_lengths)
         if self.padding == 'zeros':
             torch_embedding = [self.embedding(idx) for idx in indices]
             torch_embedding = nn.utils.rnn.pad_sequence(torch_embedding, batch_first=True)
@@ -81,8 +81,7 @@ class Embedder(nn.Module, KWArgsMixin):
             torch_embedding = [self.embedding(sentence) for sentence in indices]
         # torch_embedding = nn.functional.softmax(torch_embedding, dim=2)
         # Tensor of size (n sentences, n words, embedding_dim)
-        # TODO: return sentence lengths
-        return torch_embedding, lengths  
+        return torch_embedding, seq_lengths  
 
     # TODO: give alternative definition based on MSE
     def mrr_score(self, inputs, text_labels, reduction='mean'):
