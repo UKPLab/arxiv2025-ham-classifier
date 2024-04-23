@@ -8,7 +8,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from datasets import load_dataset
 from .hamiltonian import HamiltonianClassifier
-from .baseline import RecurrentClassifier
+from .baseline import RecurrentClassifier, QuantumCircuitClassifier
 from .embedding import Embedder
 from .dataloading import CustomDataset
 
@@ -62,6 +62,15 @@ def build_model(arch, config):
         assert hasattr(config,'rnn_layers'), 'Number of rnn layers must be provided for recurrent model'
         return RecurrentClassifier(emb_dim=config.emb_dim, hidden_dim=config.hidden_dim, 
                                    rnn_layers=config.rnn_layers, architecture=arch)
+    elif arch == 'circ':
+        assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for quantum circuit model'
+        assert hasattr(config,'gates'), 'Gates must be provided for quantum circuit model'
+        assert hasattr(config,'pos_enc'), 'Positional encoding must be provided for quantum circuit model'
+        assert hasattr(config,'bias'), 'Bias type must be provided for quantum circuit model'
+        assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for quantum circuit model'
+
+        return QuantumCircuitClassifier(emb_dim=config.emb_dim, gates=config.gates,
+                                        pos_enc=config.pos_enc, bias=config.bias, n_reps=config.n_reps)
     elif arch == 'baseline':
         raise NotImplementedError('Baseline model not yet implemented')
     else:

@@ -136,3 +136,4 @@ dmypy.json
 sketch*
 wandb/
 plots_old/
+.vscode
