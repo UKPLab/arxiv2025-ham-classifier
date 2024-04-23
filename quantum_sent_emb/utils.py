@@ -18,3 +18,9 @@ class UpdateMixin:
         To be implemented by the subclass
         '''
         pass
+
+    def to(self, device):
+        '''
+        To be implemented by the subclass
+        '''
+        pass
