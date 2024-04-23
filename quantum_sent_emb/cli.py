@@ -1,7 +1,7 @@
 import os
 import wandb
 import argparse
-from quantum_sent_emb.wandb import build_train
+from .wandb import build_train
 
 def main():  # pragma: no cover
     """

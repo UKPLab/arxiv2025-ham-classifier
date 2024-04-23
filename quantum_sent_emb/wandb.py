@@ -7,10 +7,10 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from datasets import load_dataset
-from quantum_sent_emb import HamiltonianClassifier
-from quantum_sent_emb import RecurrentClassifier
-from quantum_sent_emb import Embedder
-from quantum_sent_emb import CustomDataset
+from .hamiltonian import HamiltonianClassifier
+from .baseline import RecurrentClassifier
+from .embedding import Embedder
+from .dataloading import CustomDataset
 
 # wandb requires programmatically setting some components starting from simple string hyperparameters
 # The following functions achieve this

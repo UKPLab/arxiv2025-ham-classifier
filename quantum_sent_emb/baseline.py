@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-from quantum_sent_emb import KWArgsMixin
+from .utils import KWArgsMixin
 
 class RecurrentClassifier(nn.Module, KWArgsMixin):
     '''
-    Simple RNN classifier with a single hidden layer
+    Simple RNN/LSTM classifier
     '''
     def __init__(self, emb_dim, hidden_dim, rnn_layers, architecture):
         super().__init__()

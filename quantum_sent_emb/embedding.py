@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from abc import ABC, abstractmethod
 from gensim.models import KeyedVectors
-from quantum_sent_emb import KWArgsMixin
+from .utils import KWArgsMixin
 
 
 class Embedder(nn.Module, KWArgsMixin):
