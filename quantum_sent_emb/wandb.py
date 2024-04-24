@@ -15,6 +15,29 @@ from .dataloading import CustomDataset
 # wandb requires programmatically setting some components starting from simple string hyperparameters
 # The following functions achieve this
 
+def batch_metrics(criteria, outputs, labels):
+    '''
+    Computes metrics for a batch of data
+    '''
+    loss = criteria(outputs, labels)
+    tp = torch.sum(((outputs > 0.5) == labels) & (labels == 1)).item()
+    tn = torch.sum(((outputs > 0.5) == labels) & (labels == 0)).item()
+    fp = torch.sum(((outputs > 0.5) != labels) & (labels == 0)).item()
+    fn = torch.sum(((outputs > 0.5) != labels) & (labels == 1)).item()
+    assert tp + tn + fp + fn == len(labels)
+    return loss, tp, tn, fp, fn
+
+def epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len_dataset):
+    '''
+    Computes metrics for an epoch
+    '''
+    loss = cumu_loss / len_dataset
+    acc = (cumu_tp + cumu_tn) / len_dataset
+    f1 = 2 * cumu_tp / (2 * cumu_tp + cumu_fp + cumu_fn)
+    return loss, acc, f1
+
+
+
 def build_dataset(config, device, shuffle=True, eval_batch_size=256):
     # Access batch_size from kwargs
     assert hasattr(config,'batch_size'), 'Batch size must be provided for torch dataset'
@@ -132,9 +155,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
             n_params = model.get_n_params() # Dict containing n_params for every part 
             wandb.log(n_params)
 
-
             print('Sending model & embedding to device...')
-            
             model = model.to(device)
             embedding = embedding.to(device)
             print('Done.')
@@ -142,7 +163,6 @@ def build_train(arch, model_dir, emb_path, patience=5):
             train_loader, test_loader, dev_loader = all_datasets
 
             # Define loss function and optimizer
-            # criterion = nn.MSELoss()
             criterion = nn.BCELoss()
 
             print('Training...')
@@ -155,8 +175,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
                 # Save current time
                 start_epoch = time.time()
 
-                cumu_loss = 0
-                cumu_corr = 0
+                cumu_loss = cumu_tp = cumu_tn = cumu_fp = cumu_fn = 0
                 for batch in tqdm(train_loader):
                     data = batch['data']
                     labels = batch['label'].type(torch.float).to(device)
@@ -167,9 +186,12 @@ def build_train(arch, model_dir, emb_path, patience=5):
 
                     # Forward pass
                     outputs, _ = model(inputs, seq_lengths)
-                    loss = criterion(outputs, labels)
+                    loss, tp, tn, fp, fn = batch_metrics(criterion, outputs, labels)
                     cumu_loss += loss.item()
-                    cumu_corr += torch.sum((outputs > 0.5) == labels).item() 
+                    cumu_tp += tp
+                    cumu_tn += tn
+                    cumu_fp += fp
+                    cumu_fn += fn
 
                     # Backward pass and optimization
                     loss.backward()
@@ -188,9 +210,9 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     wandb.log({"batch loss": loss.item()})
                 print('Done.')
 
-                train_loss = cumu_loss / len(train_loader.dataset)
-                train_acc = cumu_corr / len(train_loader.dataset)
-                print(f'Train loss: {train_loss}, Train accuracy: {train_acc}')
+                # Compute metrics for the epoch
+                train_loss, train_acc, train_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(train_loader.dataset))
+                print(f'Train loss: {train_loss}, Train accuracy: {train_acc}, Train F1: {train_f1}')
 
                 # Log train runtime in minutes
                 train_epoch = time.time()
@@ -198,8 +220,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     
                 # Evaluate on dev set
                 print('Evaluating on dev set...')
-                cumu_loss = 0
-                cumu_corr = 0
+                cumu_loss = cumu_tp = cumu_tn = cumu_fp = cumu_fn = 0
                 with torch.no_grad():
                     for batch in tqdm(dev_loader):
                         data = batch['data']
@@ -208,13 +229,17 @@ def build_train(arch, model_dir, emb_path, patience=5):
 
                         # Forward pass
                         outputs, _ = model(inputs, seq_lengths)
-                        loss = criterion(outputs, labels)
+                        loss, tp, tn, fp, fn = batch_metrics(criterion, outputs, labels)
                         cumu_loss += loss.item()
-                        cumu_corr += torch.sum((outputs > 0.5) == labels).item()
+                        cumu_tp += tp
+                        cumu_tn += tn
+                        cumu_fp += fp
+                        cumu_fn += fn
+
                 
-                dev_loss = cumu_loss / len(dev_loader.dataset)
-                dev_acc = cumu_corr / len(dev_loader.dataset)
-                print(f'Dev loss: {dev_loss}, Dev accuracy: {dev_acc}')
+                # Compute metrics for the epoch
+                dev_loss, dev_acc, dev_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(dev_loader.dataset))
+                print(f'Dev loss: {dev_loss}, Dev accuracy: {dev_acc}, Dev F1: {dev_f1}')
                 print('Done.')
 
                 # Log evaluation runtime in minutes
@@ -228,6 +253,8 @@ def build_train(arch, model_dir, emb_path, patience=5):
                            "dev loss": dev_loss,
                            "train accuracy": train_acc,
                            "dev accuracy": dev_acc,
+                            "train F1": train_f1,
+                            "dev F1": dev_f1,
                            "train epoch time": train_time, 
                            "dev eval epoch time": dev_eval_time,
                            "total epoch time": total_time})
@@ -247,8 +274,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
             
             # Evaluate on test set
             print('Evaluating on test set...')
-            cumu_loss = 0
-            cumu_corr = 0
+            cumu_loss = cumu_tp = cumu_tn = cumu_fp = cumu_fn = 0
             with torch.no_grad():
                 for batch in tqdm(test_loader):
                     data = batch['data']
@@ -258,17 +284,21 @@ def build_train(arch, model_dir, emb_path, patience=5):
 
                     # Forward pass
                     outputs, _ = model(inputs, seq_lengths)
-                    loss = criterion(outputs, labels)
-                    cumu_loss += loss.item()    
-                    cumu_corr += torch.sum((outputs > 0.5) == labels).item()        
+                    loss, tp, tn, fp, fn = batch_metrics(criterion, outputs, labels)
+                    cumu_loss += loss.item()
+                    cumu_tp += tp
+                    cumu_tn += tn
+                    cumu_fp += fp
+                    cumu_fn += fn
+
             print('Done.')
             
             # Log loss
-            test_loss = cumu_loss / len(test_loader.dataset)
-            test_acc = cumu_corr / len(test_loader.dataset)
-            print(f'Test loss: {test_loss}, Test accuracy: {test_acc}')
+            test_loss, test_acc, test_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(test_loader.dataset))
+            print(f'Test loss: {test_loss}, Test accuracy: {test_acc}, Test F1: {test_f1}')
             wandb.log({"test loss": test_loss,
-                       "test accuracy": test_acc})
+                       "test accuracy": test_acc,
+                          "test F1": test_f1})
 
             # Save the best model
             save_path = os.path.join(model_dir, f'model_{arch}_{wandb.run.name}.pth')
