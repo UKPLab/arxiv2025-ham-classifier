@@ -86,7 +86,17 @@ def main():  # pragma: no cover
                 },
         }
         global_params.update(ham_params)
-    if arch == 'rnn' or arch == 'lstm':
+    elif arch == 'circ':
+        circ_params = {
+            'bias': {
+                'values': ['vector',None]
+                },
+            'pos_enc': {
+                'values': ['learned',None]
+                },
+        }
+        global_params.update(circ_params)
+    elif arch == 'rnn' or arch == 'lstm':
         rnn_params = {
             'hidden_dim': {
                 'values': [100, 300, 500]
@@ -96,10 +106,12 @@ def main():  # pragma: no cover
                 },
         }
         global_params.update(rnn_params)
+    else:
+        raise ValueError(f'Architecture {arch} not recognized.')
 
     sweep_config['parameters'] = global_params
 
-    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v1")
+    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v0")
 
     model_dir = './models/'
     if not os.path.exists(model_dir):

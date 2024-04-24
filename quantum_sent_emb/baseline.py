@@ -71,7 +71,6 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         emb_dim: size of the embedding
         bias: 'matrix', 'vector', 'diag', 'single' or None
         pos_enc: 'learned' or None
-        batch_norm: bool
         max_len: maximum sentence length
         '''
         super().__init__()
