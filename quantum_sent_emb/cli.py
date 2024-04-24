@@ -94,6 +94,19 @@ def main():  # pragma: no cover
             'pos_enc': {
                 'values': ['learned',None]
                 },
+            'gates': {
+                'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
+                            ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'], # Circuit 6 of Sim et al 2019
+                            #['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
+                            #['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
+                            ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
+                            ['rx', 'ry', 'rz'], # Control circuit without entanglement
+                            #['i'] # Control empty circuit 
+                            ]
+                },
+            'n_reps': {
+                'values': [8, 16, 32]
+                },
         }
         global_params.update(circ_params)
     elif arch == 'rnn' or arch == 'lstm':
