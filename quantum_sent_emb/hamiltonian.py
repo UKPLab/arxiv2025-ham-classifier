@@ -137,6 +137,8 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             bias_params = self.bias_param.numel()
         elif self.bias == 'single':
             bias_params = self.bias_param.numel()
+        elif self.bias == 'none':
+            bias_params = 0
         else:
             raise ValueError(f'Unknown bias {self.bias}')
 
