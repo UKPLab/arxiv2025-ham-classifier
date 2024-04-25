@@ -19,7 +19,7 @@ class BagOfWordsClassifier(nn.Module, KWArgsMixin):
     def forward(self, input, seq_lengths):
         seq_lengths = seq_lengths.to(device=input.device)
         sent_emb = torch.mean(input, dim=1) / seq_lengths.view(-1, 1)
-        pred = self.classifier(input).squeeze() # Squeeze to remove last dimension in binary classification tasks
+        pred = self.classifier(sent_emb).squeeze() # Squeeze to remove last dimension in binary classification tasks
 
         # Unsort the output
         return pred, sent_emb
