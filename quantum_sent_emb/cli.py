@@ -63,13 +63,13 @@ def main():  # pragma: no cover
                 'values': ['sentence','zeros']
                 },
             'bias': {
-                'values': ['matrix', 'vector', 'diag', 'single',None]
+                'values': ['matrix', 'vector', 'none'] #'diag', 'single',
                 },
             'batch_norm': {
                 'value': True
                 },
             'pos_enc': {
-                'values': ['learned',None]
+                'values': ['learned','none']
                 },
             'gates': {
                 'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
@@ -89,10 +89,10 @@ def main():  # pragma: no cover
     elif arch == 'circ':
         circ_params = {
             'bias': {
-                'values': ['vector',None]
+                'values': ['vector','none']
                 },
             'pos_enc': {
-                'values': ['learned',None]
+                'values': ['learned','none']
                 },
             'gates': {
                 'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2

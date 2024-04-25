@@ -96,8 +96,8 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                  max_len=300, *args, **kwargs) -> None:
         '''
         emb_dim: size of the embedding
-        bias: 'matrix', 'vector', 'diag', 'single' or None
-        pos_enc: 'learned' or None
+        bias: 'matrix', 'vector', 'diag', 'single' or 'none'
+        pos_enc: 'learned' or 'none'
         max_len: maximum sentence length
         '''
         super().__init__()
@@ -115,11 +115,11 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
         if bias == 'vector':
             self.bias_param = nn.Parameter(torch.rand((emb_dim, 1)), )
-        elif bias == None:
+        elif bias == 'none':
             self.bias_param = None
         if pos_enc == 'learned':
             self.pos_param = nn.Parameter(torch.rand((max_len, emb_dim))).type(torch.complex64)
-        elif pos_enc == None:
+        elif pos_enc == 'none':
             self.pos_param = None
 
         KWArgsMixin.__init__(self, emb_dim=emb_dim, bias=bias, pos_enc=pos_enc, max_len=max_len, 
@@ -177,14 +177,14 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     def get_n_params(self):
         if self.bias == 'vector':
             bias_params = self.bias_param.numel()
-        elif self.bias == None:
+        elif self.bias == 'none':
             bias_params = 0
         else:
             raise ValueError(f'Unknown bias {self.bias}')
 
         if self.pos_enc == 'learned':
             pos_enc_params = self.pos_param.numel()
-        elif self.pos_enc == None:
+        elif self.pos_enc == 'none':
             pos_enc_params = 0
         else:
             raise ValueError(f'Unknown positional encoding {self.pos_enc}')

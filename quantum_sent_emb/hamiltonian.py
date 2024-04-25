@@ -15,8 +15,8 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         emb_dim: size of the embedding
         hamiltonian: 'pure' or 'mixed'
         circ_in: 'sentence' or 'zeros'
-        bias: 'matrix', 'vector', 'diag', 'single' or None
-        pos_enc: 'learned' or None
+        bias: 'matrix', 'vector', 'diag', 'single' or 'none'
+        pos_enc: 'learned' or 'none'
         batch_norm: bool
         max_len: maximum sentence length
         '''
@@ -94,7 +94,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         if self.pos_enc == 'learned':
             pos_enc = self.pos_param[:x.shape[1]].type(torch.complex64)
             x = torch.einsum('s, bsi, bsj -> bij', pos_enc, x, x) / seq_lengths.view(-1, 1, 1)
-        elif self.pos_enc == None:
+        elif self.pos_enc == 'none':
             x = torch.einsum('bsi, bsj -> bij', x, x) / seq_lengths.view(-1, 1, 1)
         else:
             raise ValueError(f'Unknown positional encoding {self.pos_enc}')
@@ -112,7 +112,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             h0 = torch.diag(self.bias_param.view(-1))
         elif self.bias == 'single': # Constant * Identity
             h0 = self.bias_param * I(self.n_wires)
-        elif self.bias == None: # No bias
+        elif self.bias == 'none': # No bias
             h0 = torch.zeros_like(x[0])
         else:
             raise ValueError(f'Unknown bias {self.bias}')
@@ -142,7 +142,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
         if self.pos_enc == 'learned':
             pos_enc_params = self.pos_param.numel()
-        elif self.pos_enc == None:
+        elif self.pos_enc == 'none':
             pos_enc_params = 0
         else:
             raise ValueError(f'Unknown positional encoding {self.pos_enc}')
