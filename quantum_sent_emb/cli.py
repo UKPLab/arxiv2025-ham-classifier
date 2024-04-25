@@ -66,7 +66,7 @@ def main():  # pragma: no cover
                 'values': ['matrix', 'vector', 'diag', 'single',None]
                 },
             'batch_norm': {
-                'values': [True, False]
+                'value': True
                 },
             'pos_enc': {
                 'values': ['learned',None]
@@ -119,6 +119,8 @@ def main():  # pragma: no cover
                 },
         }
         global_params.update(rnn_params)
+    elif arch == 'bow':
+        pass # Nothing to do
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 

@@ -172,7 +172,7 @@ if __name__ == '__main__':
     model = HamiltonianClassifier(emb_dim=emb_dim, gates=[
                                   'rx', 'ry', 'rz'], circ_in='zeros', 
                                     batch_norm=True,
-                                  pos_enc='learned', bias='vector', n_reps=1)
+                                  pos_enc='learned', bias='single', n_reps=1)
     model.to(device)
     print(model(x, lengths))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)

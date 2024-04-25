@@ -4,6 +4,32 @@ import torch.nn as nn
 from .circuit import Circuit, device
 from .utils import KWArgsMixin, UpdateMixin
 
+class BagOfWordsClassifier(nn.Module, KWArgsMixin):
+    '''
+    Bag of words baseline classifier
+    '''
+    def __init__(self, emb_dim):
+        super().__init__()
+        self.classifier = nn.Sequential(
+            nn.Linear(emb_dim, 1),
+            nn.Sigmoid()
+        )
+        KWArgsMixin.__init__(self, emb_dim=emb_dim)
+    
+    def forward(self, input, seq_lengths):
+        seq_lengths = seq_lengths.to(device=input.device)
+        sent_emb = torch.mean(input, dim=1) / seq_lengths.view(-1, 1)
+        pred = self.classifier(input).squeeze() # Squeeze to remove last dimension in binary classification tasks
+
+        # Unsort the output
+        return pred, sent_emb
+    
+    def get_n_params(self):
+        n_all_params = sum(p.numel() for p in self.parameters())
+        n_params = {'n_all_params': n_all_params}
+        return n_params
+
+
 class RecurrentClassifier(nn.Module, KWArgsMixin):
     '''
     Simple RNN/LSTM classifier
@@ -20,7 +46,8 @@ class RecurrentClassifier(nn.Module, KWArgsMixin):
             nn.Linear(hidden_dim, 1),
             nn.Sigmoid()
         )
-        KWArgsMixin.__init__(self, in_dim=emb_dim, emb_dim=hidden_dim, rnn_num_layers=rnn_layers)
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, hidden_dim=hidden_dim, 
+                             rnn_layers=rnn_layers, architecture=architecture)
     
     def forward(self, input, seq_lengths):
         # (batch_size, max_seq_len, in_dim), (batch_size)
@@ -95,7 +122,8 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         elif pos_enc == None:
             self.pos_param = None
 
-        KWArgsMixin.__init__(self, emb_dim=emb_dim, bias=bias, pos_enc=pos_enc, max_len=max_len, **kwargs)
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, bias=bias, pos_enc=pos_enc, max_len=max_len, 
+                             **kwargs)
         self.update()
 
     def update(self):
@@ -182,9 +210,10 @@ if __name__ == '__main__':
     lengths = torch.linspace(1,max_seq_len,steps=batch_size).type(torch.int)
     # lengths = torch.arange(1, max_seq_len+1, (batch_size,)) # Should be cpu
     # model = RecurrentClassifier(emb_dim, emb_dim, 1, architecture='rnn').to(device)
-    model = QuantumCircuitClassifier(emb_dim=emb_dim, gates=[
-                                  'rx', 'ry', 'rz'],
-                                  pos_enc='learned', bias='vector', n_reps=1)
+    # model = QuantumCircuitClassifier(emb_dim=emb_dim, gates=[
+    #                               'rx', 'ry', 'rz'],
+    #                               pos_enc='learned', bias='vector', n_reps=1)
+    model = BagOfWordsClassifier(emb_dim=emb_dim)
     model.to(device)
 
     print(model(x, lengths))

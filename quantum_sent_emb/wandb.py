@@ -8,7 +8,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from datasets import load_dataset
 from .hamiltonian import HamiltonianClassifier
-from .baseline import RecurrentClassifier, QuantumCircuitClassifier
+from .baseline import BagOfWordsClassifier, RecurrentClassifier, QuantumCircuitClassifier
 from .embedding import Embedder
 from .dataloading import CustomDataset
 
@@ -94,8 +94,10 @@ def build_model(arch, config):
 
         return QuantumCircuitClassifier(emb_dim=config.emb_dim, gates=config.gates,
                                         pos_enc=config.pos_enc, bias=config.bias, n_reps=config.n_reps)
-    elif arch == 'baseline':
-        raise NotImplementedError('Baseline model not yet implemented')
+    elif arch == 'bow':
+        assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for bag of words model'
+
+        return BagOfWordsClassifier(emb_dim=config.emb_dim)
     else:
         raise ValueError('Invalid model architecture.')
 
