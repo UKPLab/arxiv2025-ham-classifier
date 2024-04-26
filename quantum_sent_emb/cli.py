@@ -18,12 +18,13 @@ def main():  # pragma: no cover
     parser = argparse.ArgumentParser()
     parser.add_argument('--arch', type=str, default=None, required=True, help='Architecture to train. Options: ham, baseline')
     parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
-    # Add argument --sweep-seed that doesnt accept any value
     parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
+    parser.add_argument('--test', action='store_true', help='Use original sst2 sets.')
     args = parser.parse_args()
     arch = args.arch
     emb_path = args.emb_path
     sweep_seed = args.sweep_seed
+    test = args.test
 
 
     wandb.login()
@@ -142,7 +143,7 @@ def main():  # pragma: no cover
         os.makedirs(model_dir)
 
     # torch_baseline, torch_quantum, lambeq
-    train = build_train(arch, model_dir, emb_path, patience=5)
+    train = build_train(arch=arch, model_dir=model_dir, emb_path=emb_path, test=test, patience=5)
 
     # Train the network
     wandb.agent(sweep_id, train, count=25)

@@ -1,6 +1,7 @@
 # Define the training loop
 import os
 import time
+import pandas as pd
 import wandb
 from tqdm import tqdm
 import torch
@@ -38,7 +39,7 @@ def epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len_dataset):
 
 
 
-def build_dataset(config, device, shuffle=True, eval_batch_size=256):
+def build_dataset(config, test, shuffle=True, eval_batch_size=256):
     # Access batch_size from kwargs
     assert hasattr(config,'batch_size'), 'Batch size must be provided for torch dataset'
     batch_size = config.batch_size
@@ -50,11 +51,15 @@ def build_dataset(config, device, shuffle=True, eval_batch_size=256):
     # test_dataset = CustomDataset(datasets["test"].with_format("torch", device=device), data_key='sentence', label_key='label')
 
     # Dev and train are obtained from the train portion of datasets by sampling randomly
-    train_dev_dataset = datasets["train"].train_test_split(test_size=0.1)
-    train_dataset = CustomDataset(train_dev_dataset['train'], data_key='sentence', label_key='label')
-    dev_dataset = CustomDataset(train_dev_dataset['test'], data_key='sentence', label_key='label')
-    test_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
-
+    if test == False:
+        train_dev_dataset = datasets["train"].train_test_split(test_size=0.1)
+        train_dataset = CustomDataset(train_dev_dataset['train'], data_key='sentence', label_key='label')
+        dev_dataset = CustomDataset(train_dev_dataset['test'], data_key='sentence', label_key='label')
+        test_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
+    else:
+        train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
+        dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
+        test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
 
     # Create data loaders
     train_loader = DataLoader(
@@ -62,7 +67,7 @@ def build_dataset(config, device, shuffle=True, eval_batch_size=256):
     dev_loader = DataLoader(
         dev_dataset, batch_size=eval_batch_size, shuffle=shuffle, num_workers=8)
     test_loader = DataLoader(
-        test_dataset, batch_size=eval_batch_size, shuffle=shuffle, num_workers=8)
+        test_dataset, batch_size=eval_batch_size, shuffle=False, num_workers=8)
     return train_loader, dev_loader, test_loader
 
 
@@ -117,7 +122,7 @@ def build_optimizer(model, config, momentum=0.9):
     return optimizer
 
 
-def build_parameters(arch, emb_path, device, config):
+def build_parameters(arch, emb_path, device, test, config):
     '''
     Builds model, datasets and optimizer
     '''
@@ -126,7 +131,7 @@ def build_parameters(arch, emb_path, device, config):
     assert embedding.emb_dim == config.emb_dim, 'Embedding dimension mismatch'
 
     # Load datasets
-    all_datasets = build_dataset(config, device)
+    all_datasets = build_dataset(config, test)
     # Build model
     model = build_model(arch, config)
     # Load embeddings
@@ -138,7 +143,7 @@ def build_parameters(arch, emb_path, device, config):
     return model, all_datasets, optimizer, embedding
 
 
-def build_train(arch, model_dir, emb_path, patience=5):
+def build_train(arch, model_dir, emb_path, test, patience=5):
     '''
     Builds a training function with just a config arg
     Necessary for wandb sweep
@@ -151,11 +156,11 @@ def build_train(arch, model_dir, emb_path, patience=5):
         # Initialize a new wandb run
         with wandb.init(config=config):#, Tensor.backend('pytorch'):
             config = wandb.config
-            torch.seed(config.seed)
+            torch.manual_seed(config.seed)
 
             # Build model, datasets and optimizer
             print('Building model, datasets, optimizer and embedding...')
-            model, all_datasets, optimizer, embedding = build_parameters(arch, emb_path, device=device, config=config)
+            model, all_datasets, optimizer, embedding = build_parameters(arch, emb_path, device=device, test=test, config=config)
             print('Done.')
             print(f'Now evaluating model: {model.kwargs}')
             
@@ -167,7 +172,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
             embedding = embedding.to(device)
             print('Done.')
 
-            train_loader, test_loader, dev_loader = all_datasets
+            train_loader, dev_loader, test_loader = all_datasets
 
             # Define loss function and optimizer
             criterion = nn.BCELoss()
@@ -288,27 +293,36 @@ def build_train(arch, model_dir, emb_path, patience=5):
                     labels = batch['label'].type(torch.float).to(device)
 
                     inputs, seq_lengths = embedding(data)
-
-                    # Forward pass
                     outputs, _ = model(inputs, seq_lengths)
-                    loss, tp, tn, fp, fn = batch_metrics(criterion, outputs, labels)
-                    cumu_loss += loss.item()
-                    cumu_tp += tp
-                    cumu_tn += tn
-                    cumu_fp += fp
-                    cumu_fn += fn
+
+                    if test == False:
+                        loss, tp, tn, fp, fn = batch_metrics(criterion, outputs, labels)
+                        cumu_loss += loss.item()
+                        cumu_tp += tp
+                        cumu_tn += tn
+                        cumu_fp += fp
+                        cumu_fn += fn
 
             print('Done.')
             
-            # Log loss
-            test_loss, test_acc, test_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(test_loader.dataset))
-            print(f'Test loss: {test_loss}, Test accuracy: {test_acc}, Test F1: {test_f1}')
-            wandb.log({"test loss": test_loss,
-                       "test accuracy": test_acc,
-                          "test F1": test_f1})
+            if test == False:
+                # Log loss
+                test_loss, test_acc, test_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(test_loader.dataset))
+                print(f'Test loss: {test_loss}, Test accuracy: {test_acc}, Test F1: {test_f1}')
+                wandb.log({"test loss": test_loss,
+                        "test accuracy": test_acc,
+                            "test F1": test_f1})
+            else:
+                # Save outputs to tsv with pandas
+                # Columns: index prediction
+                pd.DataFrame({'index': range(len(test_loader.dataset)), 'prediction': outputs.cpu().numpy()}) \
+                .to_csv(f'{arch}_{wandb.run.name}_test_predictions.tsv', sep='\t', index=False)
 
             # Save the best model
-            save_path = os.path.join(model_dir, f'model_{arch}_{wandb.run.name}.pth')
+            if test == False:
+                save_path = os.path.join(model_dir, f'model_{arch}_{wandb.run.name}.pth')
+            else:
+                save_path = os.path.join(model_dir, f'model_{arch}_{wandb.run.name}_test.pth')
             torch.save([model.kwargs, model.state_dict()], save_path)
 
             del model
