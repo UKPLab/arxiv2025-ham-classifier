@@ -1,4 +1,5 @@
 import os
+import random
 import wandb
 import argparse
 from .wandb import build_train
@@ -17,9 +18,12 @@ def main():  # pragma: no cover
     parser = argparse.ArgumentParser()
     parser.add_argument('--arch', type=str, default=None, required=True, help='Architecture to train. Options: ham, baseline')
     parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
+    # Add argument --sweep-seed that doesnt accept any value
+    parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
     args = parser.parse_args()
     arch = args.arch
     emb_path = args.emb_path
+    sweep_seed = args.sweep_seed
 
 
     wandb.login()
@@ -112,10 +116,10 @@ def main():  # pragma: no cover
     elif arch == 'rnn' or arch == 'lstm':
         rnn_params = {
             'hidden_dim': {
-                'values': [100, 300, 500]
+                'value': 100
                 },
             'rnn_layers': {
-                'values': [1, 4, 8]
+                'values': [1, 2]
                 },
         }
         global_params.update(rnn_params)
@@ -124,9 +128,14 @@ def main():  # pragma: no cover
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 
+    if sweep_seed:
+        global_params.update({'seed': {'values': [random.randrange(1000) for _ in range(5)]}})
+    else:
+        global_params.update({'seed': {'value': 42}})
+
     sweep_config['parameters'] = global_params
 
-    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v0")
+    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v1")
 
     model_dir = './models/'
     if not os.path.exists(model_dir):
@@ -136,4 +145,4 @@ def main():  # pragma: no cover
     train = build_train(arch, model_dir, emb_path, patience=5)
 
     # Train the network
-    wandb.agent(sweep_id, train, count=100)
+    wandb.agent(sweep_id, train, count=25)

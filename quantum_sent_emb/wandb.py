@@ -139,6 +139,10 @@ def build_parameters(arch, emb_path, device, config):
 
 
 def build_train(arch, model_dir, emb_path, patience=5):
+    '''
+    Builds a training function with just a config arg
+    Necessary for wandb sweep
+    '''
     def train(config=None):
         # Finds device to run on
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -147,6 +151,7 @@ def build_train(arch, model_dir, emb_path, patience=5):
         # Initialize a new wandb run
         with wandb.init(config=config):#, Tensor.backend('pytorch'):
             config = wandb.config
+            torch.seed(config.seed)
 
             # Build model, datasets and optimizer
             print('Building model, datasets, optimizer and embedding...')
