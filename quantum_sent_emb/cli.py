@@ -2,31 +2,9 @@ import os
 import random
 import wandb
 import argparse
-from .wandb import build_train
+from .experiment import build_train
 
-def main():  # pragma: no cover
-    """
-    The main function executes on commands:
-    `python -m quantum_sent_emb` and `$ quantum_sent_emb `.
-
-    Example:
-    ```
-    python -m quantum_sent_emb --arch ham
-    ```
-    """
-    # Add arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--arch', type=str, default=None, required=True, help='Architecture to train. Options: ham, baseline')
-    parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
-    parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
-    parser.add_argument('--test', action='store_true', help='Use original sst2 sets.')
-    args = parser.parse_args()
-    arch = args.arch
-    emb_path = args.emb_path
-    sweep_seed = args.sweep_seed
-    test = args.test
-
-
+def wandb_sweep(arch, emb_path, sweep_seed, test):
     wandb.login()
 
     sweep_config = {
@@ -147,3 +125,35 @@ def main():  # pragma: no cover
 
     # Train the network
     wandb.agent(sweep_id, train, count=25)
+
+
+def main():  # pragma: no cover
+    """
+    The main function executes on commands:
+    `python -m quantum_sent_emb` and `$ quantum_sent_emb `.
+
+    Example:
+    ```
+    python -m quantum_sent_emb --arch ham
+    ```
+    """
+    # Add arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', type=str, required=True, help='Mode to run. Options: sweep, inference')
+    parser.add_argument('--arch', type=str, default=None, help='Architecture to train. Options: ham, baseline')
+    parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
+    parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
+    parser.add_argument('--test', action='store_true', help='Use original sst2 sets.')
+    args = parser.parse_args()
+    mode = args.mode
+    arch = args.arch
+    emb_path = args.emb_path
+    sweep_seed = args.sweep_seed
+    test = args.test
+
+    if mode == 'sweep':
+        wandb_sweep(arch, emb_path, sweep_seed, test)
+    elif mode == 'inference':
+
+
+
