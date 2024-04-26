@@ -1,6 +1,7 @@
 # Define the training loop
 import os
 import time
+import numpy as np
 import pandas as pd
 import wandb
 from tqdm import tqdm
@@ -287,6 +288,7 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
             # Evaluate on test set
             print('Evaluating on test set...')
             cumu_loss = cumu_tp = cumu_tn = cumu_fp = cumu_fn = 0
+            cumu_outputs = np.array([], dtype=int)
             with torch.no_grad():
                 for batch in tqdm(test_loader):
                     data = batch['data']
@@ -302,6 +304,9 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
                         cumu_tn += tn
                         cumu_fp += fp
                         cumu_fn += fn
+                    else:
+                        outputs = (outputs > 0.5).type(torch.int)
+                        cumu_outputs = np.concatenate((cumu_outputs, outputs.cpu().numpy()))
 
             print('Done.')
             
@@ -315,8 +320,8 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
             else:
                 # Save outputs to tsv with pandas
                 # Columns: index prediction
-                pd.DataFrame({'index': range(len(test_loader.dataset)), 'prediction': outputs.cpu().numpy()}) \
-                .to_csv(f'{arch}_{wandb.run.name}_test_predictions.tsv', sep='\t', index=False)
+                pd.DataFrame({'index': range(len(test_loader.dataset)), 'prediction': cumu_outputs}) \
+                .to_csv(f'data/sst2/{arch}_{wandb.run.name}_test_predictions.tsv', sep='\t', index=False)
 
             # Save the best model
             if test == False:
