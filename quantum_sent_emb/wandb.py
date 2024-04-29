@@ -22,10 +22,13 @@ def batch_metrics(criteria, outputs, labels):
     Computes metrics for a batch of data
     '''
     loss = criteria(outputs, labels)
-    tp = torch.sum(((outputs > 0.5) == labels) & (labels == 1)).item()
-    tn = torch.sum(((outputs > 0.5) == labels) & (labels == 0)).item()
-    fp = torch.sum(((outputs > 0.5) != labels) & (labels == 0)).item()
-    fn = torch.sum(((outputs > 0.5) != labels) & (labels == 1)).item()
+    pred = (outputs > 0.5)
+    pos = (labels == 1)
+    neg = (labels == 0)
+    tp = torch.sum((pred == labels) & pos).item()
+    tn = torch.sum((pred == labels) & neg).item()
+    fp = torch.sum((pred != labels) & neg).item()
+    fn = torch.sum((pred != labels) & pos).item()
     assert tp + tn + fp + fn == len(labels)
     return loss, tp, tn, fp, fn
 
