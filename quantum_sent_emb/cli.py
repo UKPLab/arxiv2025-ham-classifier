@@ -75,7 +75,7 @@ def wandb_sweep(arch, emb_path, sweep_seed, test, model_dir = './models/'):
                 'values': ['vector','none']
                 },
             'pos_enc': {
-                'values': ['learned','none']
+                'value': 'none'
                 },
             'gates': {
                 'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
@@ -89,6 +89,9 @@ def wandb_sweep(arch, emb_path, sweep_seed, test, model_dir = './models/'):
                 },
             'n_reps': {
                 'values': [8, 16, 32]
+                },
+            'clas_type' : {
+                'values': ['tomography', 'hamiltonian']
                 },
         }
         global_params.update(circ_params)

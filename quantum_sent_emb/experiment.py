@@ -104,8 +104,9 @@ def build_model(arch, config):
         assert hasattr(config,'pos_enc'), 'Positional encoding must be provided for quantum circuit model'
         assert hasattr(config,'bias'), 'Bias type must be provided for quantum circuit model'
         assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for quantum circuit model'
+        assert hasattr(config,'clas_type'), 'Classifier type must be provided for quantum circuit model'
 
-        return QuantumCircuitClassifier(emb_dim=config.emb_dim, gates=config.gates,
+        return QuantumCircuitClassifier(emb_dim=config.emb_dim, clas_type=config.clas_type, gates=config.gates,
                                         pos_enc=config.pos_enc, bias=config.bias, n_reps=config.n_reps)
     elif arch == 'bow':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for bag of words model'
