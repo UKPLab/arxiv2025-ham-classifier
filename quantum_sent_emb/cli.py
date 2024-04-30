@@ -2,9 +2,9 @@ import os
 import random
 import wandb
 import argparse
-from .experiment import build_train
+from .experiment import build_train, infer
 
-def wandb_sweep(arch, emb_path, sweep_seed, test):
+def wandb_sweep(arch, emb_path, sweep_seed, test, model_dir = './models/'):
     wandb.login()
 
     sweep_config = {
@@ -116,7 +116,7 @@ def wandb_sweep(arch, emb_path, sweep_seed, test):
 
     sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v1")
 
-    model_dir = './models/'
+    
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
@@ -125,6 +125,15 @@ def wandb_sweep(arch, emb_path, sweep_seed, test):
 
     # Train the network
     wandb.agent(sweep_id, train, count=25)
+
+
+def inference(model_name, emb_path, test, model_dir = './models/'):
+    # If no file exist with model_name, crash
+    if not os.path.exists(model_dir + model_name):
+        raise ValueError(f'Model {model_name} not found in {model_dir}')
+    
+    infer(model_name, model_dir, emb_path, test)
+
 
 
 def main():  # pragma: no cover
@@ -144,16 +153,17 @@ def main():  # pragma: no cover
     parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
     parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
     parser.add_argument('--test', action='store_true', help='Use original sst2 sets.')
+    parser.add_argument('--model_dir', type=str, default='./models/', help='Directory to save models')
+    parser.add_argument('--model_name', type=str, help='Name of the model')
     args = parser.parse_args()
     mode = args.mode
     arch = args.arch
     emb_path = args.emb_path
     sweep_seed = args.sweep_seed
     test = args.test
+    model_name = args.model_name
 
     if mode == 'sweep':
         wandb_sweep(arch, emb_path, sweep_seed, test)
     elif mode == 'inference':
-
-
-
+        inference(model_name, emb_path, test)
