@@ -65,16 +65,16 @@ def main():  # pragma: no cover
     if arch == 'ham':
         ham_params = {
             'circ_in': {
-                'values': ['sentence','zeros']
+                'value': 'zeros' # ['sentence',
                 },
             'bias': {
-                'values': ['matrix', 'vector', 'none'] #'diag', 'single',
+                'value': 'matrix' #, 'vector', 'none'] #'diag', 'single',
                 },
             'batch_norm': {
                 'value': True
                 },
             'pos_enc': {
-                'values': ['learned','none']
+                'value': 'none' #['learned',]
                 },
             'gates': {
                 'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
@@ -146,4 +146,4 @@ def main():  # pragma: no cover
     train = build_train(arch=arch, model_dir=model_dir, emb_path=emb_path, test=test, patience=5)
 
     # Train the network
-    wandb.agent(sweep_id, train, count=25)
+    wandb.agent(sweep_id, train, count=50)
