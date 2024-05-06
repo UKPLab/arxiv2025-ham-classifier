@@ -70,7 +70,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         Returns:
         (batch_size), (batch_size, emb_dim)
         '''
-        x = x.type(torch.complex64)
+        x = x.type(torch.complex64).to(device)
         seq_lengths = seq_lengths.to(device)
         
         if self.circ_in == 'sentence': # Mean of sentence

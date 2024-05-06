@@ -24,3 +24,12 @@ class UpdateMixin:
         To be implemented by the subclass
         '''
         pass
+
+
+class DotDict:
+    '''
+    Dot notation access to dictionary attributes
+    '''
+    def __init__(self, dictionary):
+        for key, value in dictionary.items():
+            setattr(self, key, value)

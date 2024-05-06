@@ -13,4 +13,4 @@ class CustomDataset(torch.utils.data.Dataset):
         sample = self.dataset[idx]
         data = sample[self.data_key]
         label = sample[self.label_key]
-        return {'data': data, 'label': label}
+        return {'idx': idx, 'data': data, 'label': label}

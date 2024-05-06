@@ -8,11 +8,12 @@ from tqdm import tqdm
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from datasets import load_dataset
+from datasets import load_dataset, concatenate_datasets
 from .hamiltonian import HamiltonianClassifier
 from .baseline import BagOfWordsClassifier, RecurrentClassifier, QuantumCircuitClassifier
 from .embedding import Embedder
 from .dataloading import CustomDataset
+from .utils import DotDict
 
 # wandb requires programmatically setting some components starting from simple string hyperparameters
 # The following functions achieve this
@@ -44,26 +45,20 @@ def epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len_dataset):
 
 
 def build_dataset(config, test, shuffle=True, eval_batch_size=256):
-    # Access batch_size from kwargs
-    assert hasattr(config,'batch_size'), 'Batch size must be provided for torch dataset'
-    batch_size = config.batch_size
-
     # Loads dataset from hf
     datasets = load_dataset("sst2")
-    # train_dataset = CustomDataset(datasets["train"].with_format("torch", device=device), data_key='sentence', label_key='label')
-    # dev_dataset = CustomDataset(datasets["validation"].with_format("torch", device=device), data_key='sentence', label_key='label')
-    # test_dataset = CustomDataset(datasets["test"].with_format("torch", device=device), data_key='sentence', label_key='label')
 
-    # Dev and train are obtained from the train portion of datasets by sampling randomly
     if test == False:
-        train_dev_dataset = datasets["train"].train_test_split(test_size=0.1)
-        train_dataset = CustomDataset(train_dev_dataset['train'], data_key='sentence', label_key='label')
-        dev_dataset = CustomDataset(train_dev_dataset['test'], data_key='sentence', label_key='label')
-        test_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
+        assert hasattr(config,'batch_size'), 'Batch size must be provided for torch dataset'
+        batch_size = config.batch_size
+        train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
+        dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
+        test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
     else:
         train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
         dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
         test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
+        train_dataset = concatenate_datasets([train_dataset, dev_dataset])
 
     # Create data loaders
     train_loader = DataLoader(
@@ -100,8 +95,9 @@ def build_model(arch, config):
         assert hasattr(config,'pos_enc'), 'Positional encoding must be provided for quantum circuit model'
         assert hasattr(config,'bias'), 'Bias type must be provided for quantum circuit model'
         assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for quantum circuit model'
+        assert hasattr(config,'clas_type'), 'Classifier type must be provided for quantum circuit model'
 
-        return QuantumCircuitClassifier(emb_dim=config.emb_dim, gates=config.gates,
+        return QuantumCircuitClassifier(emb_dim=config.emb_dim, clas_type=config.clas_type, gates=config.gates,
                                         pos_enc=config.pos_enc, bias=config.bias, n_reps=config.n_reps)
     elif arch == 'bow':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for bag of words model'
@@ -275,17 +271,18 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
                            "dev eval epoch time": dev_eval_time,
                            "total epoch time": total_time})
                 
-                # Check if the current validation loss is better than the previous best loss
-                if dev_loss < best_dev_loss * 0.99:
-                    best_dev_loss = dev_loss
-                    counter = 0  # Reset the counter since there's improvement
-                else:
-                    counter += 1  # Increment the counter as no improvement occurred
-                    
-                # Check if the counter has exceeded the patience limit
-                if counter >= patience:
-                    print("Early stopping: No improvement in validation loss for {} epochs.".format(patience))
-                    break  # Exit the training loop
+                if patience is not None:
+                    # Check if the current validation loss is better than the previous best loss
+                    if dev_loss < best_dev_loss * 0.99:
+                        best_dev_loss = dev_loss
+                        counter = 0  # Reset the counter since there's improvement
+                    else:
+                        counter += 1  # Increment the counter as no improvement occurred
+                        
+                    # Check if the counter has exceeded the patience limit
+                    if counter >= patience:
+                        print("Early stopping: No improvement in validation loss for {} epochs.".format(patience))
+                        break  # Exit the training loop
 
             
             # Evaluate on test set
@@ -339,3 +336,90 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
             print('Current memory allocated: ', torch.cuda.memory_allocated())
 
     return train
+
+
+def infer(model_name, model_dir, emb_path, test):
+    '''
+    Inference function
+    '''
+    # Finds device to run on
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print(f'Running on {device}')
+
+    # Load model
+    print('Loading model...')
+    arch = model_name.split('_')[1]
+    model_kwargs, model_state_dict = torch.load(os.path.join(model_dir, model_name))
+    model_kwargs = DotDict(model_kwargs) # Ugly trick to access kwargs as attributes
+    model = build_model(arch, model_kwargs)
+    model.load_state_dict(model_state_dict)
+    model.to(device)
+    if hasattr(model, 'update'):
+        model.update()
+    print('Done.')
+
+    # Load embedding here
+    print('Loading embedding...')
+    embedding = Embedder(weights_path = emb_path)
+    assert embedding.emb_dim == model_kwargs.emb_dim, 'Embedding dimension mismatch'
+    print('Done.')
+
+    # Load dataset
+    print('Loading dataset...')
+    all_datasets = build_dataset(model_kwargs, test)
+    if test:
+        _, _, data_loader = all_datasets
+    else:
+        _, data_loader, _ = all_datasets
+    print('Done.')
+
+    # Define loss function
+    criterion = nn.BCELoss()
+
+    # Evaluate on test set
+    if test:
+        print('Evaluating on test set...')
+    else:
+        print('Evaluating on dev set...')
+    cumu_loss = cumu_tp = cumu_tn = cumu_fp = cumu_fn = 0
+    cumu_outputs = np.array([], dtype=int)
+    with torch.no_grad():
+        for batch in tqdm(data_loader):
+            print(batch['idx'])
+            data = batch['data']
+            labels = batch['label'].type(torch.float).to(device)
+
+            inputs, seq_lengths = embedding(data)
+            outputs, _ = model(inputs, seq_lengths)
+
+            if test:
+                outputs = (outputs > 0.5).type(torch.int)
+                cumu_outputs = np.concatenate((cumu_outputs, outputs.cpu().numpy()))                
+            else:
+                loss, tp, tn, fp, fn = batch_metrics(criterion, outputs, labels)
+                cumu_loss += loss.item()
+                cumu_tp += tp
+                cumu_tn += tn
+                cumu_fp += fp
+                cumu_fn += fn
+
+
+    print('Done.')
+
+    print('Saving results...')
+    if test == False:
+        # Log loss
+        dev_loss, dev_acc, dev_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(data_loader.dataset))
+        print(f'Dev loss: {dev_loss}, Dev accuracy: {dev_acc}, Dev F1: {dev_f1}')
+    else:
+        # Save outputs to tsv with pandas
+        # Columns: index prediction
+        pd.DataFrame({'index': range(len(data_loader.dataset)), 'prediction': cumu_outputs}) \
+        .to_csv(f'data/sst2/{arch}_{model_name}_test_predictions.tsv', sep='\t', index=False)
+    print('Done.')
+
+    del model
+    del embedding
+    torch.cuda.empty_cache()
+    
+    print('Current memory allocated: ', torch.cuda.memory_allocated())
