@@ -8,7 +8,7 @@ from tqdm import tqdm
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from datasets import load_dataset
+from datasets import load_dataset, concatenate_datasets
 from .hamiltonian import HamiltonianClassifier
 from .baseline import BagOfWordsClassifier, RecurrentClassifier, QuantumCircuitClassifier
 from .embedding import Embedder
@@ -45,29 +45,20 @@ def epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len_dataset):
 
 
 def build_dataset(config, test, shuffle=True, eval_batch_size=256):
-    # Access batch_size from kwargs
+    # Loads dataset from hf
+    datasets = load_dataset("sst2")
+
     if test == False:
         assert hasattr(config,'batch_size'), 'Batch size must be provided for torch dataset'
         batch_size = config.batch_size
-    else:
-        batch_size = eval_batch_size
-
-    # Loads dataset from hf
-    datasets = load_dataset("sst2")
-    # train_dataset = CustomDataset(datasets["train"].with_format("torch", device=device), data_key='sentence', label_key='label')
-    # dev_dataset = CustomDataset(datasets["validation"].with_format("torch", device=device), data_key='sentence', label_key='label')
-    # test_dataset = CustomDataset(datasets["test"].with_format("torch", device=device), data_key='sentence', label_key='label')
-
-    if test == False:
-        # Dev and train are obtained from the train portion of datasets by sampling randomly
-        train_dev_dataset = datasets["train"].train_test_split(test_size=0.1)
-        train_dataset = CustomDataset(train_dev_dataset['train'], data_key='sentence', label_key='label')
-        dev_dataset = CustomDataset(train_dev_dataset['test'], data_key='sentence', label_key='label')
-        test_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
+        train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
+        dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
+        test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
     else:
         train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
         dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
         test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
+        train_dataset = concatenate_datasets([train_dataset, dev_dataset])
 
     # Create data loaders
     train_loader = DataLoader(
@@ -280,17 +271,18 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
                            "dev eval epoch time": dev_eval_time,
                            "total epoch time": total_time})
                 
-                # Check if the current validation loss is better than the previous best loss
-                if dev_loss < best_dev_loss * 0.99:
-                    best_dev_loss = dev_loss
-                    counter = 0  # Reset the counter since there's improvement
-                else:
-                    counter += 1  # Increment the counter as no improvement occurred
-                    
-                # Check if the counter has exceeded the patience limit
-                if counter >= patience:
-                    print("Early stopping: No improvement in validation loss for {} epochs.".format(patience))
-                    break  # Exit the training loop
+                if patience is not None:
+                    # Check if the current validation loss is better than the previous best loss
+                    if dev_loss < best_dev_loss * 0.99:
+                        best_dev_loss = dev_loss
+                        counter = 0  # Reset the counter since there's improvement
+                    else:
+                        counter += 1  # Increment the counter as no improvement occurred
+                        
+                    # Check if the counter has exceeded the patience limit
+                    if counter >= patience:
+                        print("Early stopping: No improvement in validation loss for {} epochs.".format(patience))
+                        break  # Exit the training loop
 
             
             # Evaluate on test set
@@ -375,18 +367,24 @@ def infer(model_name, model_dir, emb_path, test):
     # Load dataset
     print('Loading dataset...')
     all_datasets = build_dataset(model_kwargs, test)
-    _, _, test_loader = all_datasets
+    if test:
+        _, _, data_loader = all_datasets
+    else:
+        _, data_loader, _ = all_datasets
     print('Done.')
 
     # Define loss function
     criterion = nn.BCELoss()
 
     # Evaluate on test set
-    print('Evaluating on test set...')
+    if test:
+        print('Evaluating on test set...')
+    else:
+        print('Evaluating on dev set...')
     cumu_loss = cumu_tp = cumu_tn = cumu_fp = cumu_fn = 0
     cumu_outputs = np.array([], dtype=int)
     with torch.no_grad():
-        for batch in tqdm(test_loader):
+        for batch in tqdm(data_loader):
             print(batch['idx'])
             data = batch['data']
             labels = batch['label'].type(torch.float).to(device)
@@ -394,28 +392,29 @@ def infer(model_name, model_dir, emb_path, test):
             inputs, seq_lengths = embedding(data)
             outputs, _ = model(inputs, seq_lengths)
 
-            if test == False:
+            if test:
+                outputs = (outputs > 0.5).type(torch.int)
+                cumu_outputs = np.concatenate((cumu_outputs, outputs.cpu().numpy()))                
+            else:
                 loss, tp, tn, fp, fn = batch_metrics(criterion, outputs, labels)
                 cumu_loss += loss.item()
                 cumu_tp += tp
                 cumu_tn += tn
                 cumu_fp += fp
                 cumu_fn += fn
-            else:
-                outputs = (outputs > 0.5).type(torch.int)
-                cumu_outputs = np.concatenate((cumu_outputs, outputs.cpu().numpy()))
+
 
     print('Done.')
 
     print('Saving results...')
     if test == False:
         # Log loss
-        test_loss, test_acc, test_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(test_loader.dataset))
-        print(f'Test loss: {test_loss}, Test accuracy: {test_acc}, Test F1: {test_f1}')
+        dev_loss, dev_acc, dev_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(data_loader.dataset))
+        print(f'Dev loss: {dev_loss}, Dev accuracy: {dev_acc}, Dev F1: {dev_f1}')
     else:
         # Save outputs to tsv with pandas
         # Columns: index prediction
-        pd.DataFrame({'index': range(len(test_loader.dataset)), 'prediction': cumu_outputs}) \
+        pd.DataFrame({'index': range(len(data_loader.dataset)), 'prediction': cumu_outputs}) \
         .to_csv(f'data/sst2/{arch}_{model_name}_test_predictions.tsv', sep='\t', index=False)
     print('Done.')
 
