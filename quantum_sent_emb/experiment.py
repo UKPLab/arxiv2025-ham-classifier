@@ -284,40 +284,23 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
                         print("Early stopping: No improvement in validation loss for {} epochs.".format(patience))
                         break  # Exit the training loop
 
-            
-            # Evaluate on test set
-            print('Evaluating on test set...')
-            cumu_loss = cumu_tp = cumu_tn = cumu_fp = cumu_fn = 0
-            cumu_outputs = np.array([], dtype=int)
-            with torch.no_grad():
-                for batch in tqdm(test_loader):
-                    data = batch['data']
-                    labels = batch['label'].type(torch.float).to(device)
+            if test:
+                # Evaluate on test set
+                print('Evaluating on test set...')
+                cumu_loss = cumu_tp = cumu_tn = cumu_fp = cumu_fn = 0
+                cumu_outputs = np.array([], dtype=int)
+                with torch.no_grad():
+                    for batch in tqdm(test_loader):
+                        data = batch['data']
 
-                    inputs, seq_lengths = embedding(data)
-                    outputs, _ = model(inputs, seq_lengths)
+                        inputs, seq_lengths = embedding(data)
+                        outputs, _ = model(inputs, seq_lengths)
 
-                    if test == False:
-                        loss, tp, tn, fp, fn = batch_metrics(criterion, outputs, labels)
-                        cumu_loss += loss.item()
-                        cumu_tp += tp
-                        cumu_tn += tn
-                        cumu_fp += fp
-                        cumu_fn += fn
-                    else:
                         outputs = (outputs > 0.5).type(torch.int)
                         cumu_outputs = np.concatenate((cumu_outputs, outputs.cpu().numpy()))
 
-            print('Done.')
-            
-            if test == False:
-                # Log loss
-                test_loss, test_acc, test_f1 = epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len(test_loader.dataset))
-                print(f'Test loss: {test_loss}, Test accuracy: {test_acc}, Test F1: {test_f1}')
-                wandb.log({"test loss": test_loss,
-                        "test accuracy": test_acc,
-                            "test F1": test_f1})
-            else:
+                print('Done.')
+                
                 # Save outputs to tsv with pandas
                 # Columns: index prediction
                 pd.DataFrame({'index': range(len(test_loader.dataset)), 'prediction': cumu_outputs}) \
