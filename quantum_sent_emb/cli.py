@@ -108,15 +108,25 @@ def inference(model_name, emb_path, test, model_dir = './models/'):
     
     infer(model_name, model_dir, emb_path, test)
 
-
+# TODO: write definitive version of this
 def main():  # pragma: no cover
     """
     The main function executes on commands:
     `python -m quantum_sent_emb` and `$ quantum_sent_emb `.
 
-    Example:
+    To run sweep:
     ```
-    python -m quantum_sent_emb --arch ham
+    python -m quantum_sent_emb --arch ham --mode sweep
+    ```
+
+    To run inference:
+    ```
+    python -m quantum_sent_emb --arch ham --mode inference
+    ```
+
+    To run a single model over many seeds:
+    ```
+    python -m quantum_sent_emb --arch ham --mode run --sweep_seed
     ```
     """
     # Add arguments
