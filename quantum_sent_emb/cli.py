@@ -78,6 +78,18 @@ def wandb_run(arch, emb_path, sweep_seed, test, model_dir = './models/'):
         global_params = run_lstm
     elif arch == 'bow':
         global_params = run_bow
+    elif arch == 'ablation_peffbias':
+        global_params = run_ablation_peffbias
+        arch = 'ham'
+    elif arch == 'ablation_nobias':
+        global_params = run_ablation_nobias
+        arch = 'ham'
+    elif arch == 'ablation_sentin':
+        global_params = run_ablation_sentin
+        arch = 'ham'
+    elif arch == 'ablation_circham':
+        global_params = run_ablation_circham
+        arch = 'circ'
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 
