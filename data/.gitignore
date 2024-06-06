@@ -1,2 +1,4 @@
 *
 !.gitignore
+!wandb_data/*
+!wandb_data
