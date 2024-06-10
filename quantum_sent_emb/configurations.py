@@ -93,7 +93,7 @@ sweep_mlp = {
         'values': [3, 4, 5]
         },
     'hidden_dim': {
-        'value': [100, 200, 300]
+        'values': [100, 200, 300]
         },
 }
 
@@ -251,6 +251,34 @@ run_bow = {
 
     'vocab_size' : {
         'value': None
+        },
+}
+
+run_mlp = {
+    'optimizer': {
+        'value': 'adam'
+        },
+    'learning_rate': {
+        'value': 1e-4
+        },
+    'batch_size': {
+        'value': 256
+        },
+    'epochs': {
+        'value': 30
+        },
+    'emb_dim': {
+        'value': 300 
+        },
+
+    'vocab_size' : {
+        'value': None
+        },
+    'n_layers': {
+        'value': 5
+        },
+    'hidden_dim': {
+        'value': 300
         },
 }
 
