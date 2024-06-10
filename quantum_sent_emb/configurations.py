@@ -88,6 +88,16 @@ sweep_rnn = {
         },
 }
 
+sweep_mlp = {
+    'n_layers': {
+        'values': [3, 4, 5]
+        },
+    'hidden_dim': {
+        'value': [100, 200, 300]
+        },
+}
+
+
 
 # Configuration for best models
 run_ham = { 

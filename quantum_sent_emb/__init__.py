@@ -1,5 +1,5 @@
 from .baseline import (BagOfWordsClassifier, QuantumCircuitClassifier,
-                       RecurrentClassifier)
+                       RecurrentClassifier, MLPClassifier)
 from .circuit import (CNOT, CZ, RX, RY, RZ, Circuit, CRXAllToAll, CRXRing,
                       CRZAllToAll, CRZRing, CZRing, H, I, ILayer, RXLayer,
                       RYLayer, RZLayer, Z, pauli2matrix)
@@ -13,6 +13,7 @@ __all__ = [
     "KWArgsMixin",
     "UpdateMixin",
     "RecurrentClassifier",
+    "MLPClassifier",
     "BagOfWordsClassifier",
     "QuantumCircuitClassifier",
     "HamiltonianClassifier",

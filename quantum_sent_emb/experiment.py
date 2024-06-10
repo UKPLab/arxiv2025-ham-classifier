@@ -12,7 +12,8 @@ from datasets import load_dataset, concatenate_datasets
 
 from .circuit import pauli2matrix, decompose_hamiltonians
 from .hamiltonian import HamiltonianClassifier
-from .baseline import BagOfWordsClassifier, RecurrentClassifier, QuantumCircuitClassifier
+from .baseline import BagOfWordsClassifier, RecurrentClassifier, \
+                        QuantumCircuitClassifier, MLPClassifier
 from .embedding import Embedder
 from .dataloading import CustomDataset, DecompositionDataset, decomposition_collate_fn
 from .utils import DotDict
@@ -127,6 +128,11 @@ def build_model(arch, config):
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for bag of words model'
 
         return BagOfWordsClassifier(emb_dim=config.emb_dim)
+    elif arch == 'mlp':
+        assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for mlp model'
+        assert hasattr(config,'hidden_dim'), 'Hidden dimension must be provided for mlp model'
+        assert hasattr(config,'n_layers'), 'Number of layers must be provided for mlp model'
+        return MLPClassifier(emb_dim=config.emb_dim, hidden_dim=config.hidden_dim, n_layers=config.n_layers)
     else:
         raise ValueError('Invalid model architecture.')
 

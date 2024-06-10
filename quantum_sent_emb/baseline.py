@@ -21,7 +21,6 @@ class BagOfWordsClassifier(nn.Module, KWArgsMixin):
         sent_emb = torch.sum(input, dim=1) / seq_lengths.view(-1, 1)
         pred = self.classifier(sent_emb).squeeze() # Squeeze to remove last dimension in binary classification tasks
 
-        # Unsort the output
         return pred, sent_emb
     
     def get_n_params(self):
@@ -222,48 +221,35 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                     'n_clas_params': clas_params}
         return n_params
 
- 
-if __name__ == '__main__':
-    from matplotlib import pyplot as plt
-    from tqdm import tqdm
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+class MLPClassifier(nn.Module, KWArgsMixin):
+    '''
+    Multi-layer perceptron classifier
+    '''
+    def __init__(self, emb_dim, n_layers, hidden_dim):
+        super().__init__()
 
-    # Training test
-    emb_dim = 5
-    batch_size = 4
-    max_seq_len = 3
-    x = torch.rand((batch_size, max_seq_len, emb_dim)).to(device)
-    lengths = torch.linspace(1,max_seq_len,steps=batch_size).type(torch.int)
-    # lengths = torch.arange(1, max_seq_len+1, (batch_size,)) # Should be cpu
-    # model = RecurrentClassifier(emb_dim, emb_dim, 1, architecture='rnn').to(device)
-    model = QuantumCircuitClassifier(emb_dim=emb_dim, gates=[
-                                  'rx', 'ry', 'rz'], clas_type='hamiltonian',
-                                  pos_enc='learned', bias='vector', n_reps=1)
-    # model = BagOfWordsClassifier(emb_dim=emb_dim)
-    model.to(device)
+        if n_layers < 2:
+            raise ValueError('n_layers must be at least 2')
+        self.classifier = nn.Sequential()
+        self.classifier.add_module('input', nn.Linear(emb_dim, hidden_dim))
+        self.classifier.add_module('relu_in', nn.ReLU())
+        for i in range(n_layers-2):
+            self.classifier.add_module(f'hidden_{i}', nn.Linear(hidden_dim, hidden_dim))
+            self.classifier.add_module(f'relu_{i}', nn.ReLU())
+        self.classifier.add_module('output', nn.Linear(hidden_dim, 1))
+        self.classifier.add_module('sigmoid_out', nn.Sigmoid())
 
-    print(model(x, lengths))
-    print(model.get_n_params())
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, n_layers=n_layers, hidden_dim=hidden_dim)
+    
+    def forward(self, input, seq_lengths):
+        seq_lengths = seq_lengths.to(device=input.device)
+        sent_emb = torch.sum(input, dim=1) / seq_lengths.view(-1, 1)
+        pred = self.classifier(sent_emb).squeeze() # Squeeze to remove last dimension in binary classification tasks
 
-    for i in tqdm(range(2000)):
-        optimizer.zero_grad()
-        output, _ = model(x, lengths)
-        loss = torch.mean(output).real
-        # print(loss)
-        loss.backward()
-        for param in model.parameters():
-            if param.grad is not None:
-                param.grad.data = param.grad.data.to(param.data.device)
-        # Print gradient norm
-        # print(f'Gradient norm: {torch.norm(torch.stack([torch.norm(p.grad) for p in model.parameters()]))}')
-        # Ugly workaround to have grads on gpu
-        if hasattr(model, 'update'):                        
-            for param in model.parameters():
-                if param.grad is not None:
-                    param.grad.data = param.grad.data.to(param.data.device)
-            optimizer.step()
-            model.update()
-        else:
-            optimizer.step()
+        return pred, sent_emb
+    
+    def get_n_params(self):
+        n_all_params = sum(p.numel() for p in self.parameters())
+        n_params = {'n_all_params': n_all_params}
+        return n_params
