@@ -62,26 +62,16 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             self.pos_param = self.pos_param.to(device)
         return self
 
-    def forward(self, x, seq_lengths):
+    def hamiltonian(self, x, seq_lengths):
         '''
         x: (batch_size, sent_len, emb_dim)
         lengths: (batch_size)
 
         Returns:
-        (batch_size), (batch_size, emb_dim)
+        (batch_size, 2**n_wires, 2**n_wires)
         '''
         x = x.type(torch.complex64).to(device)
         seq_lengths = seq_lengths.to(device)
-        
-        if self.circ_in == 'sentence': # Mean of sentence
-            s = x.mean(dim=1).reshape(-1, self.emb_size) # (batch_size, emb_dim)
-            s = torch.nn.functional.pad(s, (0, 2**self.n_wires - self.emb_size))
-            s = s / torch.norm(s, dim=1).view(-1, 1)
-        elif self.circ_in == 'zeros': # Zero state
-            s = torch.zeros((x.shape[0], 2**self.n_wires), dtype=torch.complex64).to(device)
-            s[:, 0] = 1
-        else:
-            raise ValueError(f'Unknown circuit input {self.circ_in}')
         
         # Add vector bias
         if self.bias == 'vector':
@@ -119,15 +109,63 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         x = x + h0
         x = torch.nn.functional.normalize(x,dim=0)
 
-        # Apply self.circuit to sentence
-        circ_out = self.circuit(s)
-        x = torch.einsum('bi,bij,jb -> b', circ_out, x, circ_out.H).real
+        return x
+
+    def state(self, x):
+        if self.circ_in == 'sentence': # Mean of sentence
+            sent = x.mean(dim=1).reshape(-1, self.emb_size) # (batch_size, emb_dim)
+            sent = torch.nn.functional.pad(sent, (0, 2**self.n_wires - self.emb_size))
+            sent = sent / torch.norm(sent).view(-1, 1)
+            sent = self.circuit(sent)
+            sent = sent.repeat(x.shape[0], 1)
+            return sent
+        elif self.circ_in == 'zeros': # Zero state
+            sent = torch.zeros(2**self.n_wires, dtype=torch.complex64).to(device)
+            sent[0] = 1
+            sent = self.circuit(sent.view(1, -1))
+            sent = sent.repeat(x.shape[0], 1)
+            return sent
+        elif self.circ_in == 'hadamard':
+            sent = torch.ones(2**self.n_wires, dtype=torch.complex64).to(device)
+            sent = sent / torch.norm(sent).view(-1, 1)
+            sent = self.circuit(sent.view(1, -1))
+            sent = sent.repeat(x.shape[0], 1)
+            return sent
+        else:
+            raise ValueError(f'Unknown circuit input {self.circ_in}')
+
+
+    def expval(self, ham, state):
+        # torch.einsum('bi,bij,jb -> b', state, ham, state.H).real
+        if len(state.shape) == 1:
+            state = state.view(1, -1)
+        if len(ham.shape) == 2:
+            ham = ham.view(1, *ham.shape)
+
+        ev = torch.einsum('bi,bij,jb -> b', state, ham, state.H).real
 
         if self.batch_norm:
-            x = self.batch_norm(x.view(-1, 1)).view(-1)
-        x = nn.functional.sigmoid(x)
+            ev = self.batch_norm(ev.view(-1, 1)).view(-1)
+        ev = nn.functional.sigmoid(ev)
+        return ev
 
-        return x, circ_out
+    def forward(self, x, seq_lengths):
+        '''
+        x: (batch_size, sent_len, emb_dim)
+        lengths: (batch_size)
+
+        Returns:
+        (batch_size), (batch_size, emb_dim)
+        '''
+        x = x.type(torch.complex64).to(device)
+        seq_lengths = seq_lengths.to(device)
+
+        state = self.state(x) # Get state/sent emb
+        ham = self.hamiltonian(x, seq_lengths) # Get hamiltonian
+
+        x = self.expval(ham, state) # Combine to get expval
+
+        return x, state
 
     def get_n_params(self):
         if self.bias == 'matrix':

@@ -397,3 +397,42 @@ run_ablation_circham = {
         'values': 'hamiltonian'
         },
 }
+
+run_ablation_hamhad = { 
+    'optimizer': {
+        'value': 'adam'
+        },
+    'learning_rate': {
+        'value': 1e-3
+        },
+    'batch_size': {
+        'value': 128
+        },
+    'epochs': {
+        'value': 30
+        },
+    'emb_dim': {
+        'value': 300 
+        },
+    'vocab_size' : {
+        'value': None
+        },
+    'circ_in': {
+        'value': 'hadamard'
+        },
+    'bias': {
+        'value': 'matrix'
+        },
+    'batch_norm': {
+        'value': True
+        },
+    'pos_enc': {
+        'value': 'none'
+        },
+    'gates': {
+        'value':    ['ry', 'crx_ring', 'ry', 'crx_ring'] # Circuit 14 of Sim et al 2019
+        },
+    'n_reps': {
+        'value': 16
+        },
+}

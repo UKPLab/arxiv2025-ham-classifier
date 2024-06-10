@@ -2,7 +2,7 @@ import os
 import random
 import wandb
 import argparse
-from .experiment import build_train, infer
+from .experiment import build_train, infer, infer_simplified
 from .configurations import *
 
 def wandb_sweep(arch, emb_path, sweep_seed, test, patience, model_dir = './models/'):
@@ -90,6 +90,9 @@ def wandb_run(arch, emb_path, sweep_seed, test, model_dir = './models/'):
     elif arch == 'ablation_circham':
         global_params = run_ablation_circham
         arch = 'circ'
+    elif arch == 'ablation_hamhad':
+        global_params = run_ablation_hamhad
+        arch = 'ham'
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 
@@ -120,7 +123,15 @@ def inference(model_name, emb_path, test, model_dir = './models/'):
     
     infer(model_name, model_dir, emb_path, test)
 
-# TODO: write definitive version of this
+
+def inference_simplified(model_name, emb_path, data_path, model_dir = './models/'):
+    # If no file exist with model_name, crash
+    if not os.path.exists(model_dir + model_name):
+        raise ValueError(f'Model {model_name} not found in {model_dir}')
+    
+    infer_simplified(model_name, model_dir, emb_path)
+
+
 def main():  # pragma: no cover
     """
     The main function executes on commands:
@@ -133,7 +144,7 @@ def main():  # pragma: no cover
 
     To run inference:
     ```
-    python -m quantum_sent_emb --arch ham --mode inference
+    python -m quantum_sent_emb --arch ham --mode inference --model_name <model_name>
     ```
 
     To run a single model over many seeds:
@@ -151,6 +162,7 @@ def main():  # pragma: no cover
     parser.add_argument('--model_dir', type=str, default='./models/', help='Directory to save models')
     parser.add_argument('--model_name', type=str, help='Name of the model')
     parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
+    parser.add_argument('--data_path', type=str, default='./data/sst2', help='Path to decomposed Hamiltonian data')
     args = parser.parse_args()
     mode = args.mode
     arch = args.arch
@@ -159,10 +171,13 @@ def main():  # pragma: no cover
     test = args.test
     model_name = args.model_name
     patience = args.patience
+    data_path = args.data_path
 
     if mode == 'sweep':
         wandb_sweep(arch, emb_path, sweep_seed, test, patience=patience)
     elif mode == 'inference':
         inference(model_name, emb_path, test)
+    elif mode == 'inference_simplified':
+        inference_simplified(model_name, emb_path, data_path)
     elif mode == 'run':
         wandb_run(arch, emb_path, sweep_seed, test)

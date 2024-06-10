@@ -2,8 +2,8 @@ from .baseline import (BagOfWordsClassifier, QuantumCircuitClassifier,
                        RecurrentClassifier)
 from .circuit import (CNOT, CZ, RX, RY, RZ, Circuit, CRXAllToAll, CRXRing,
                       CRZAllToAll, CRZRing, CZRing, H, I, ILayer, RXLayer,
-                      RYLayer, RZLayer, Z)
-from .dataloading import CustomDataset
+                      RYLayer, RZLayer, Z, pauli2matrix)
+from .dataloading import CustomDataset, DecompositionDataset, decomposition_collate_fn
 from .embedding import Embedder
 from .hamiltonian import HamiltonianClassifier
 from .utils import KWArgsMixin, UpdateMixin
@@ -24,6 +24,7 @@ __all__ = [
     "CZ",
     "H",
     "Z",
+    "pauli2matrix",
     "ILayer",
     "RXLayer",
     "RYLayer",
@@ -34,5 +35,7 @@ __all__ = [
     "CRXAllToAll",
     "CRZAllToAll",
     "Circuit",
-    "CustomDataset"
+    "CustomDataset",
+    "DecompositionDataset",
+    "decomposition_collate_fn",
     ]

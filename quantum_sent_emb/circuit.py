@@ -1,9 +1,42 @@
 import torch
 import torch.nn as nn
+import concurrent.futures
+from tqdm import tqdm
 
 from .utils import UpdateMixin
 
+from qiskit.quantum_info import SparsePauliOp
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# def pauli_decompose(matrix):
+#     dec = SparsePauliOp.from_operator(matrix)
+#     return dec
+
+
+def decompose_hamiltonians(hamiltonians, sorting=True):
+    if hamiltonians[0].shape[0] < 64:
+        # decs = [pauli_decompose(h) for h in hamiltonians]
+        decs = [SparsePauliOp.from_operator(h) for h in tqdm(hamiltonians)]
+    else:
+        # Multiprocessing
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            # decs = list(tqdm(executor.map(pauli_decompose, hamiltonians), total=len(hamiltonians)))
+            decs = list(tqdm(executor.map(SparsePauliOp.from_operator, hamiltonians), total=len(hamiltonians)))
+
+    decs = [d.to_list() for d in decs]
+    # Sort based on coefficients
+    if sorting:
+        decs = [sorted(d, key=lambda x: abs(x[1]), reverse=True) for d in decs]
+    return decs
+
+
+def pauli2matrix(string_list):
+    if len(string_list) == 0:
+        return torch.eye(1).type(torch.complex64).to(device)
+    matrix = SparsePauliOp.from_list(string_list).to_matrix()
+    matrix = torch.tensor(matrix).type(torch.complex64)
+    return matrix
 
 
 def I(n_wires):
@@ -224,7 +257,6 @@ class ILayer(nn.Module, UpdateMixin):
     def forward(self, x):
         return self.gate @ x
 
-
 class RXLayer(nn.Module, UpdateMixin):
     '''
     Rotation around X axis 
@@ -437,3 +469,4 @@ class Circuit(nn.Module, UpdateMixin):
     def update(self):
         for layer in self.layers:
             layer.update()
+
