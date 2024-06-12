@@ -1,21 +1,24 @@
 # Define the training loop
 import os
 import time
+
 import numpy as np
 import pandas as pd
-import wandb
-from tqdm import tqdm
 import torch
+from datasets import concatenate_datasets, load_dataset
 from torch import nn
 from torch.utils.data import DataLoader
-from datasets import load_dataset, concatenate_datasets
+from tqdm import tqdm
 
-from .circuit import pauli2matrix, decompose_hamiltonians
-from .hamiltonian import HamiltonianClassifier
-from .baseline import BagOfWordsClassifier, RecurrentClassifier, \
-                        QuantumCircuitClassifier, MLPClassifier
+import wandb
+
+from .baseline import (BagOfWordsClassifier, MLPClassifier,
+                       QuantumCircuitClassifier, RecurrentClassifier)
+from .circuit import decompose_hamiltonians, pauli2matrix
+from .dataloading import (CustomDataset, DecompositionDataset,
+                          decomposition_collate_fn)
 from .embedding import Embedder
-from .dataloading import CustomDataset, DecompositionDataset, decomposition_collate_fn
+from .hamiltonian import HamiltonianClassifier
 from .utils import DotDict
 
 # wandb requires programmatically setting some components starting from simple string hyperparameters

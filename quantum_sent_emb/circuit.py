@@ -1,11 +1,11 @@
+import concurrent.futures
+
 import torch
 import torch.nn as nn
-import concurrent.futures
+from qiskit.quantum_info import SparsePauliOp
 from tqdm import tqdm
 
 from .utils import UpdateMixin
-
-from qiskit.quantum_info import SparsePauliOp
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -163,6 +163,18 @@ def Z():
     Z = torch.tensor([[1, 0], [0, -1]]).type(torch.complex64)
     return Z.to(device)
 
+def pauli_Z_observable(n_wires, target):
+    '''
+    Builds the Pauli-Z observable
+    '''
+    U = torch.tensor([1], device=device)
+    for i in range(n_wires):
+        if i == target:
+            U = torch.kron(U, Z())
+        else:
+            U = torch.kron(U, I(1))
+    return U.to(device)
+
 
 def layer_gate(n_wires, gate):
     '''
@@ -243,6 +255,24 @@ def a2a_gate(n_wires, gate):
                 U = _distant_control(i, j, n_wires, gate[w_index]) @ U
 
     return U
+
+
+def angle_embedding(x, n_wires):
+    '''
+    Creates an angle embedded state
+    Returns the state vector
+    '''
+    assert x.shape[1] == n_wires, f'Expected {n_wires} features, got {x.shape[1]}'
+    cosines = torch.cos(x)
+    sines = -1j * torch.sin(x)
+    
+    out = torch.ones(x.shape[0], 1, dtype=torch.complex64).to(device) 
+    for i in range(x.shape[1]):
+        angle = torch.stack([cosines[:, i], sines[:, i]], dim=1)
+        out = torch.stack([torch.kron(o, a) for o,a in zip(out, angle)], dim=0)
+        
+    assert out.shape[1] == 2**n_wires, f'Expected 2**{n_wires} features, got {out.shape[1]}'
+    return out 
 
 class ILayer(nn.Module, UpdateMixin):
     '''
@@ -450,6 +480,7 @@ class Circuit(nn.Module, UpdateMixin):
         for gate in gates:
             self.layers.append(c2g[gate](n_wires=n_wires))
         self.layers = nn.ModuleList(self.layers * n_reps)
+        self.update()
 
     def forward(self, x):
         x = x.T
@@ -470,3 +501,29 @@ class Circuit(nn.Module, UpdateMixin):
         for layer in self.layers:
             layer.update()
 
+
+class PauliCircuit(Circuit):
+    '''
+    Simulates a circuit with Pauli measurements
+    '''
+    def __init__(self, n_wires, gates, n_reps, pauli, *args, **kwargs) -> None:
+        self.pauli = pauli
+        self.n_wires = n_wires
+        super().__init__(n_wires, gates, n_reps, *args, **kwargs)
+        
+        if pauli == 'z':
+            self.paulis = [pauli_Z_observable(n_wires, i) for i in range(n_wires)]
+            self.paulis = torch.stack(self.paulis)
+        
+
+    def forward(self, x):
+        x = super().forward(x)
+        x = x.T
+        return torch.einsum('bi,wij,jb->bw', x.H, self.paulis, x).real
+        # (batch, 2**wires) x (wires, 2**wires, 2**wires) x (2**wires, batch) = (batch, wires)
+
+    def update(self):
+        super().update()
+        if self.pauli == 'z':
+            self.paulis = [pauli_Z_observable(self.n_wires, i) for i in range(self.n_wires)]
+            self.paulis = torch.stack(self.paulis)

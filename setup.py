@@ -1,6 +1,7 @@
 """Python setup.py for quantum_sent_emb package"""
 import io
 import os
+
 from setuptools import find_packages, setup
 
 

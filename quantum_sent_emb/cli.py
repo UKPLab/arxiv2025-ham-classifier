@@ -1,9 +1,12 @@
+import argparse
 import os
 import random
+
 import wandb
-import argparse
-from .experiment import build_train, infer, infer_simplified
+
 from .configurations import *
+from .experiment import build_train, infer, infer_simplified
+
 
 def wandb_sweep(arch, emb_path, sweep_seed, test, patience, model_dir = './models/'):
     wandb.login()
@@ -129,7 +132,7 @@ def inference(model_name, emb_path, test, model_dir = './models/'):
     infer(model_name, model_dir, emb_path, test)
 
 
-def inference_simplified(model_name, emb_path, data_path, model_dir = './models/'):
+def inference_simplified(model_name, emb_path, model_dir = './models/'):
     # If no file exist with model_name, crash
     if not os.path.exists(model_dir + model_name):
         raise ValueError(f'Model {model_name} not found in {model_dir}')
@@ -152,10 +155,16 @@ def main():  # pragma: no cover
     python -m quantum_sent_emb --arch ham --mode inference --model_name <model_name>
     ```
 
+    To run inference with decomposed Hamiltonians:
+    ```
+    python -m quantum_sent_emb --arch ham --mode inference_simplified --model_name <model_name>
+    ```
+    
     To run a single model over many seeds:
     ```
     python -m quantum_sent_emb --arch ham --mode run --sweep_seed
     ```
+
     """
     # Add arguments
     parser = argparse.ArgumentParser()
@@ -183,6 +192,6 @@ def main():  # pragma: no cover
     elif mode == 'inference':
         inference(model_name, emb_path, test)
     elif mode == 'inference_simplified':
-        inference_simplified(model_name, emb_path, data_path)
+        inference_simplified(model_name, emb_path)
     elif mode == 'run':
         wandb_run(arch, emb_path, sweep_seed, test)

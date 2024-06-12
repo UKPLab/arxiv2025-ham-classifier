@@ -4,6 +4,7 @@ import torch.nn as nn
 from .circuit import Circuit, device
 from .utils import KWArgsMixin, UpdateMixin
 
+
 class BagOfWordsClassifier(nn.Module, KWArgsMixin):
     '''
     Bag of words baseline classifier
@@ -253,3 +254,5 @@ class MLPClassifier(nn.Module, KWArgsMixin):
         n_all_params = sum(p.numel() for p in self.parameters())
         n_params = {'n_all_params': n_all_params}
         return n_params
+    
+

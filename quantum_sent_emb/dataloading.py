@@ -1,5 +1,7 @@
 import pickle
+
 import torch
+
 
 class CustomDataset(torch.utils.data.Dataset):
     def __init__(self, dataset, data_key='data', label_key='label'):
@@ -48,27 +50,3 @@ class DecompositionDataset(torch.utils.data.IterableDataset):
                     yield item
                 except EOFError:
                     break
-
-    # def __init__(self, file_path):
-    #     self.file_path = file_path
-    #     self.offsets = []
-    #     self._calculate_offsets()
-
-    # def _calculate_offsets(self):
-    #     with open(self.file_path, 'rb') as f:
-    #         while True:
-    #             try:
-    #                 offset = f.tell()
-    #                 _ = pickle.load(f)
-    #                 self.offsets.append(offset)
-    #             except EOFError:
-    #                 break
-
-    # def __len__(self):
-    #     return len(self.offsets)
-
-    # def __getitem__(self, idx):
-    #     with open(self.file_path, 'rb') as f:
-    #         f.seek(self.offsets[idx])
-    #         item = pickle.load(f)
-    #     return item
