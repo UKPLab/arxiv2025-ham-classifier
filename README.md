@@ -1,7 +1,7 @@
 <h1 align="left">Hamiltonian classifier</h1>
 <div align="left">
 
-  <a href="">[![Arxiv](https://img.shields.io/badge/Arxiv-TO.DO-red?style=flat-square&logo=arxiv&logoColor=white)](https://put-here-your-paper.com)</a>
+  <a href="">[![arXiv](https://img.shields.io/badge/arXiv-TO.DO-red?style=flat-square&logo=arxiv&logoColor=white)](https://put-here-your-paper.com)</a>
   <a href="">[![License](https://img.shields.io/github/license/akatief/ham-classifier)](https://opensource.org/licenses/Apache-2.0)</a>
   <a href="">[![Python Versions](https://img.shields.io/badge/Python-3.9-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)</a>
 
@@ -27,10 +27,12 @@ Don't hesitate to send us an e-mail or report an issue, if something is broken o
 
 Create a conda environment and install dependencies:
 
-```bash
-conda env create -f requirements.yml
-conda activate hc
-```
+  ```bash
+  conda env create -f requirements.yml
+  conda activate hc
+  ```
+Then, download [GoogleNews-vectors-negative300.bin.gz](https://github.com/mmihaltz/word2vec-GoogleNews-vectors?tab=readme-ov-file) and place it in the `embeddings` folder.
+
 
 The experiments log all data on [Weights & Biases](https://wandb.ai). If you're not interested, you can disable it with:
 ```bash
