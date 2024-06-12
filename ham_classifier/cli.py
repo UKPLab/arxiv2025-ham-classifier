@@ -143,26 +143,26 @@ def inference_simplified(model_name, emb_path, model_dir = './models/'):
 def main():  # pragma: no cover
     """
     The main function executes on commands:
-    `python -m quantum_sent_emb` and `$ quantum_sent_emb `.
+    `python -m ham_classifier` and `$ ham_classifier `.
 
     To run sweep:
     ```
-    python -m quantum_sent_emb --arch ham --mode sweep
+    python -m ham_classifier --arch ham --mode sweep
     ```
 
     To run inference:
     ```
-    python -m quantum_sent_emb --arch ham --mode inference --model_name <model_name>
+    python -m ham_classifier --arch ham --mode inference --model_name <model_name>
     ```
 
     To run inference with decomposed Hamiltonians:
     ```
-    python -m quantum_sent_emb --arch ham --mode inference_simplified --model_name <model_name>
+    python -m ham_classifier --arch ham --mode inference_simplified --model_name <model_name>
     ```
     
     To run a single model over many seeds:
     ```
-    python -m quantum_sent_emb --arch ham --mode run --sweep_seed
+    python -m ham_classifier --arch ham --mode run --sweep_seed
     ```
 
     """
