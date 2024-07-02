@@ -83,6 +83,10 @@ This is how you can replicate the Hamiltonian decomposition experiment in the ap
 python -m ham_classifier --arch ham --mode inference_simplified --model_name <model_name> --model_dir <model_dir>
 ```
 
+## Dataset
+
+All experiments are run on the [SST-2 Dataset](https://huggingface.co/datasets/stanfordnlp/sst2) available on HuggingFace. The scripts automatically download the dataset and run experiments on it. If you wish to run experiments on a different dataset you must change the script. Take a look at `build_dataset` inside [ham_classifier/experiment.py](ham_classifier/experiment.py) to learn more.
+
 ## Cite
 
 Please use the following citation:
