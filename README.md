@@ -11,7 +11,7 @@
   <img src='ham_classifier.png' width='500'>
 </p>
 
-This repository implements the Hamiltonian classifier and its comparison with off-the-shelf methods as proposed in the paper [Quantum NLP in the LLM era - Common pitfalls, practical obstacles, and how to avoid them](https://www.youtube.com/watch?v=dQw4w9WgXcQ&pp=ygUXbmV2ZXIgZ29ubmEgZ2l2ZSB5b3UgdXA%3D). It contains the code of all experiments described in the paper, a notebook to generate plots and tables, and the data needed to replicate them.
+This repository implements the Hamiltonian classifier and its comparison with off-the-shelf methods as proposed in the paper [Quantum NLP in the LLM era - Common pitfalls, practical obstacles, and some solutions](https://www.youtube.com/watch?v=dQw4w9WgXcQ&pp=ygUXbmV2ZXIgZ29ubmEgZ2l2ZSB5b3UgdXA%3D). It contains the code of all experiments described in the paper, a notebook to generate plots and tables, and the data needed to replicate them.
 
 ><details>
 ><summary> <b>Abstract</b> </summary>
