@@ -143,26 +143,26 @@ def inference_simplified(model_name, emb_path, model_dir = './models/'):
 def main():  # pragma: no cover
     """
     The main function executes on commands:
-    `python -m quantum_sent_emb` and `$ quantum_sent_emb `.
+    `python -m ham_classifier` and `$ ham_classifier `.
 
     To run sweep:
     ```
-    python -m quantum_sent_emb --arch ham --mode sweep
+    python -m ham_classifier --arch ham --mode sweep
     ```
 
     To run inference:
     ```
-    python -m quantum_sent_emb --arch ham --mode inference --model_name <model_name>
+    python -m ham_classifier --arch ham --mode inference --model_name <model_name>
     ```
 
     To run inference with decomposed Hamiltonians:
     ```
-    python -m quantum_sent_emb --arch ham --mode inference_simplified --model_name <model_name>
+    python -m ham_classifier --arch ham --mode inference_simplified --model_name <model_name>
     ```
     
     To run a single model over many seeds:
     ```
-    python -m quantum_sent_emb --arch ham --mode run --sweep_seed
+    python -m ham_classifier --arch ham --mode run --sweep_seed
     ```
 
     """
@@ -170,7 +170,7 @@ def main():  # pragma: no cover
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, required=True, help='Mode to run. Options: sweep, run, inference')
     parser.add_argument('--arch', type=str, default=None, help='Architecture to train. Options: ham, baseline')
-    parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
+    parser.add_argument('--emb_path', type=str, default='./embeddings/GoogleNews-vectors-negative300.bin.gz', help='Path to word2vec embeddings')
     parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
     parser.add_argument('--test', action='store_true', help='Use original sst2 splits.')
     parser.add_argument('--model_dir', type=str, default='./models/', help='Directory to save models')

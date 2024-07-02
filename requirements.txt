@@ -1,5 +1,0 @@
-datasets==2.18.0
-gensim==4.3.2
-# torch==1.13.0
-# torch==2.2.1
-tqdm==4.66.2
