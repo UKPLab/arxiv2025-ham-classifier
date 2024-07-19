@@ -1,94 +1,98 @@
-<p  align="center">
-  <img src='logo.png' width='200'>
+<h1 align="left">Hamiltonian classifier</h1>
+<div align="left">
+
+  <a href="">[![arXiv](https://img.shields.io/badge/arXiv-TO.DO-red?style=flat-square&logo=arxiv&logoColor=white)](https://put-here-your-paper.com)</a>
+  <a href="">[![License](https://img.shields.io/github/license/UKPLab/arxiv2024-ham-classifier)](https://opensource.org/licenses/Apache-2.0)</a>
+  <a href="">[![Python Versions](https://img.shields.io/badge/Python-3.9-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)</a>
+
+</div>
+
+<p  align="left">
+  <img src='ham_classifier.png' width='500'>
 </p>
 
-# quantum_sent_emb
-[![Arxiv](https://img.shields.io/badge/Arxiv-YYMM.NNNNN-red?style=flat-square&logo=arxiv&logoColor=white)](https://put-here-your-paper.com)
-[![License](https://img.shields.io/github/license/akatief/quantum-sent-emb)](https://opensource.org/licenses/Apache-2.0)
-[![Python Versions](https://img.shields.io/badge/Python-3.9-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![CI](https://github.com/akatief/quantum-sent-emb/actions/workflows/main.yml/badge.svg)](https://github.com/akatief/quantum-sent-emb/actions/workflows/main.yml)
+This repository implements the Hamiltonian classifier and its comparison with off-the-shelf methods as proposed in the paper [Quantum NLP in the LLM era - Common pitfalls, practical obstacles, and some solutions](https://www.youtube.com/watch?v=dQw4w9WgXcQ&pp=ygUXbmV2ZXIgZ29ubmEgZ2l2ZSB5b3UgdXA%3D). It contains the code to perform sentence classification on the [SST-2 Dataset](https://huggingface.co/datasets/stanfordnlp/sst2) as described in the paper, a notebook to generate plots and tables, and the data needed to replicate them.
 
-This is the official template for new Python projects at UKP Lab. It was adapted for the needs of UKP Lab from the excellent [python-project-template](https://github.com/rochacbruno/python-project-template/) by [rochacbruno](https://github.com/rochacbruno).
-
-It should help you start your project and give you continuous status updates on the development through [GitHub Actions](https://docs.github.com/en/actions).
-
-> **Abstract:** The study of natural language processing (NLP) has gained increasing importance in recent years, with applications ranging from machine translation to sentiment analysis. Properly managing Python projects in this domain is of paramount importance to ensure reproducibility and facilitate collaboration. The template provides a structured starting point for projects and offers continuous status updates on development through GitHub Actions. Key features include a basic setup.py file for installation, packaging, and distribution, documentation structure using mkdocs, testing structure using pytest, code linting with pylint, and entry points for executing the program with basic CLI argument parsing. Additionally, the template incorporates continuous integration using GitHub Actions with jobs to check, lint, and test the project, ensuring robustness and reliability throughout the development process.
+><details>
+><summary> <b>Abstract</b> </summary>
+>Quantum computing is a discipline with a track record of exceptional theoretical understanding but few empirical demonstrations due to the engineering complexity of developing quantum devices. Unlike machine learning (ML) and natural language processing (NLP), which address noisy, unstructured, and intractable problems using data-intensive methods, the most promising quantum algorithms solve well-structured numerical problems with mathematically proven solutions, highlighting a fundamental difference in their conceptual approaches. In this paper, we provide a critical outlook on the field of quantum NLP (QNLP). We conclude that several differences exist that may prevent quantum-based architectures from ever being competitive with classical ones. To facilitate future research, we emphasize common pitfalls and suggest directions practitioners should explore to bridge the gap between quantum computing and NLP. Moreover, we introduce a new model inspired by variational quantum eigensolvers that circumvents some of the issues we raise in the paper and show its effectiveness on a simple but realistic text classification task.
+></details></p>
 
 Contact person: [Federico Tiblias](mailto:federico.tiblias@tu-darmstadt.de) 
 
 [UKP Lab](https://www.ukp.tu-darmstadt.de/) | [TU Darmstadt](https://www.tu-darmstadt.de/
 )
 
-Don't hesitate to send us an e-mail or report an issue, if something is broken (and it shouldn't be) or if you have further questions.
+Don't hesitate to send us an e-mail or report an issue, if something is broken or if you have further questions.
 
 
 ## Getting Started
 
-> **DO NOT CLONE OR FORK**
+Create a conda environment and install dependencies:
 
-If you want to set up this template:
+  ```bash
+  conda env create -f requirements.yml
+  conda activate hc
+  ```
+Then, download [GoogleNews-vectors-negative300.bin.gz](https://github.com/mmihaltz/word2vec-GoogleNews-vectors?tab=readme-ov-file) and place it in the `embeddings` folder.
 
-1. Request a repository on UKP Lab's GitHub by following the standard procedure on the wiki. It will install the template directly. Alternatively, set it up in your personal GitHub account by clicking **[Use this template](https://github.com/rochacbruno/python-project-template/generate)**.
-2. Wait until the first run of CI finishes. Github Actions will commit to your new repo with a "✅ Ready to clone and code" message.
-3. Delete optional files: 
-    - If you don't need automatic documentation generation, you can delete folder `docs`, file `.github\workflows\docs.yml` and `mkdocs.yml`
-    - If you don't want automatic testing, you can delete folder `tests` and file `.github\workflows\tests.yml`
-4. Prepare a virtual environment:
+
+The experiments log all data on [Weights & Biases](https://wandb.ai). If you're not interested, you can disable it with:
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install --editable .
-pip install -r requirements-dev.txt # Only needed for development
+wandb disabled
 ```
-5. Adapt anything else (for example this file) to your project. 
-
-6. Read the file [ABOUT_THIS_TEMPLATE.md](ABOUT_THIS_TEMPLATE.md)  for more information about development.
 
 ## Usage
 
-### Using the classes
+### Hyperparameter search
 
-This is how you can use classes inside `quantum_sent_emb`: 
-
-```py
-from quantum_sent_emb import BaseClass
-from quantum_sent_emb import base_function
-
-BaseClass().base_method()
-base_function()
-```
-### Using scripts
-
-This is how you can use `quantum_sent_emb` from command line:
+This is how you can run a random search for a specific architecture: 
 
 ```bash
-$ python -m quantum_sent_emb
+python -m ham_classifier --mode sweep --arch <arch_type> 
+```
+Supported choices for `arch_type` are `ham`, `circ`, `rnn`, `bow`, `mlp`. Optionally, you can include `--patience <n>` to enforce early stopping if loss on the dev set is not decreasing for `n` consecutive epochs.
+
+### Training
+
+This is how you can run several training runs for a specific architectures over multiple seeds:
+
+```bash
+python -m ham_classifier --mode run --sweep_seed --arch <arch_type>
 ```
 
-### Expected results
+### Inference
 
-After running the experiments, you should expect the following results:
+This is how you can evaluate a trained model on the SST dev and test sets:
 
-(Feel free to describe your expected results here...)
+```bash
+python -m ham_classifier --mode inference --arch <arch_type> --model_name <model_name> --model_dir <model_dir>
+```
 
-### Parameter description
+Arguments:
+- `--arch_type`: The architecture type. One of `ham`, `circ`, `rnn`, `bow`, `mlp`, `ablation_peffbias`, `ablation_nobias`, `ablation_sentin`, `ablation_circham`;
+- `--model_dir`: Directory to which the models are saved. Model weights are saved by default with each training run in `models/`;
+- `--model_name`: Model name of the run to evaluate as assigned by W&B;
+- `--test`: Add this to evaluate on the test split of SST. 
 
-* `x, --xxxx`: This parameter does something nice
+### Inference with decomposed Hamiltonians
 
-* ...
+This is how you can replicate the Hamiltonian decomposition experiment in the appendix: 
 
-* `z, --zzzz`: This parameter does something even nicer
+```bash
+python -m ham_classifier --arch ham --mode inference_simplified --model_name <model_name> --model_dir <model_dir>
+```
 
-## Development
+## Dataset
 
-Read the FAQs in [ABOUT_THIS_TEMPLATE.md](ABOUT_THIS_TEMPLATE.md) to learn more about how this template works and where you should put your classes & methods. Make sure you've correctly installed `requirements-dev.txt` dependencies
+All experiments are run on the [SST-2 Dataset](https://huggingface.co/datasets/stanfordnlp/sst2) available on HuggingFace. The scripts automatically download the dataset and run experiments on it. If you wish to run experiments on a different dataset you must change the script. Take a look at `build_dataset` inside [ham_classifier/experiment.py](ham_classifier/experiment.py) to learn more.
 
 ## Cite
 
 Please use the following citation:
 
 ```
-@InProceedings{smith:20xx:CONFERENCE_TITLE,
+@InProceedings{TODO:EMNLP2024,
   author    = {Smith, John},
   title     = {My Paper Title},
   booktitle = {Proceedings of the 20XX Conference on XXXX},

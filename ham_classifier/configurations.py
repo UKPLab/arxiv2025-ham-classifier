@@ -121,7 +121,7 @@ sweep_mlp = {
         'values': [3, 4, 5]
         },
     'hidden_dim': {
-        'values': [100, 200, 300]
+        'values': [100, 300, 500]
         },
 }
 

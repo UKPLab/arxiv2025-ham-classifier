@@ -1,9 +1,12 @@
+import argparse
 import os
 import random
+
 import wandb
-import argparse
-from .experiment import build_train, infer, infer_simplified
+
 from .configurations import *
+from .experiment import build_train, infer, infer_simplified
+
 
 def wandb_sweep(arch, emb_path, sweep_seed, test, patience, model_dir = './models/'):
     wandb.login()
@@ -133,7 +136,7 @@ def inference(model_name, emb_path, test, model_dir = './models/'):
     infer(model_name, model_dir, emb_path, test)
 
 
-def inference_simplified(model_name, emb_path, data_path, model_dir = './models/'):
+def inference_simplified(model_name, emb_path, model_dir = './models/'):
     # If no file exist with model_name, crash
     if not os.path.exists(model_dir + model_name):
         raise ValueError(f'Model {model_name} not found in {model_dir}')
@@ -144,28 +147,34 @@ def inference_simplified(model_name, emb_path, data_path, model_dir = './models/
 def main():  # pragma: no cover
     """
     The main function executes on commands:
-    `python -m quantum_sent_emb` and `$ quantum_sent_emb `.
+    `python -m ham_classifier` and `$ ham_classifier `.
 
     To run sweep:
     ```
-    python -m quantum_sent_emb --arch ham --mode sweep
+    python -m ham_classifier --arch ham --mode sweep
     ```
 
     To run inference:
     ```
-    python -m quantum_sent_emb --arch ham --mode inference --model_name <model_name>
+    python -m ham_classifier --arch ham --mode inference --model_name <model_name>
     ```
 
+    To run inference with decomposed Hamiltonians:
+    ```
+    python -m ham_classifier --arch ham --mode inference_simplified --model_name <model_name>
+    ```
+    
     To run a single model over many seeds:
     ```
-    python -m quantum_sent_emb --arch ham --mode run --sweep_seed
+    python -m ham_classifier --arch ham --mode run --sweep_seed
     ```
+
     """
     # Add arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, required=True, help='Mode to run. Options: sweep, run, inference')
     parser.add_argument('--arch', type=str, default=None, help='Architecture to train. Options: ham, baseline')
-    parser.add_argument('--emb_path', type=str, default='./embeddings/word2vec.300d.bin.gz', help='Path to word2vec embeddings')
+    parser.add_argument('--emb_path', type=str, default='./embeddings/GoogleNews-vectors-negative300.bin.gz', help='Path to word2vec embeddings')
     parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
     parser.add_argument('--test', action='store_true', help='Use original sst2 splits.')
     parser.add_argument('--model_dir', type=str, default='./models/', help='Directory to save models')
@@ -187,6 +196,6 @@ def main():  # pragma: no cover
     elif mode == 'inference':
         inference(model_name, emb_path, test)
     elif mode == 'inference_simplified':
-        inference_simplified(model_name, emb_path, data_path)
+        inference_simplified(model_name, emb_path)
     elif mode == 'run':
         wandb_run(arch, emb_path, sweep_seed, test)

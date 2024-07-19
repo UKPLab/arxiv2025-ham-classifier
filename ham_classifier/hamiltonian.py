@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
-from .utils import KWArgsMixin, UpdateMixin
+
 from .circuit import Circuit, I, device
+from .utils import KWArgsMixin, UpdateMixin
+
 
 class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     '''
