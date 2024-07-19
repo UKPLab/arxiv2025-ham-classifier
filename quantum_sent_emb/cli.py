@@ -34,6 +34,10 @@ def wandb_sweep(arch, emb_path, sweep_seed, test, patience, model_dir = './model
     elif arch == 'mlp':
         mlp_params = sweep_mlp
         global_params.update(mlp_params)
+    elif arch == 'ham_peffbias':
+        ham_params = sweep_ham_peffbias
+        global_params.update(ham_params)
+        arch = 'ham'
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 
@@ -54,7 +58,7 @@ def wandb_sweep(arch, emb_path, sweep_seed, test, patience, model_dir = './model
     train = build_train(arch=arch, model_dir=model_dir, emb_path=emb_path, test=test, patience=patience)
 
     # Train the network
-    wandb.agent(sweep_id, train, count=50)
+    wandb.agent(sweep_id, train, count=25)
 
 
 def wandb_run(arch, emb_path, sweep_seed, test, model_dir = './models/'):

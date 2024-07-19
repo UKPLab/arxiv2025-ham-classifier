@@ -53,6 +53,34 @@ sweep_ham = {
         },
 }
 
+sweep_ham_peffbias = {
+    'circ_in': {
+        'value': 'zeros'
+        },
+    'bias': {
+        'value': 'vector' #'diag', 'single',
+        },
+    'batch_norm': {
+        'value': True
+        },
+    'pos_enc': {
+        'value': 'none'
+        },
+    'gates': {
+        'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
+                    ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'], # Circuit 6 of Sim et al 2019
+                    #['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
+                    #['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
+                    ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
+                    ['rx', 'ry', 'rz'], # Control circuit without entanglement
+                    #['i'] # Control empty circuit 
+                    ]
+        },
+    'n_reps': {
+        'values': [8, 16, 32]
+        },
+}
+
 sweep_circ = {
     'bias': {
         'values': ['vector','none']
@@ -278,7 +306,7 @@ run_mlp = {
         'value': 5
         },
     'hidden_dim': {
-        'value': 300
+        'value': 100
         },
 }
 
