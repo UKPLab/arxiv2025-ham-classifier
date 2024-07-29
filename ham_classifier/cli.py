@@ -8,7 +8,7 @@ from .configurations import *
 from .experiment import build_train, infer, infer_simplified
 
 
-def wandb_sweep(arch, emb_path, sweep_seed, test, patience, model_dir = './models/'):
+def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir = './models/'):
     wandb.login()
 
     sweep_config = {
@@ -58,13 +58,13 @@ def wandb_sweep(arch, emb_path, sweep_seed, test, patience, model_dir = './model
         os.makedirs(model_dir)
 
     # torch_baseline, torch_quantum, lambeq
-    train = build_train(arch=arch, model_dir=model_dir, emb_path=emb_path, test=test, patience=patience)
+    train = build_train(arch=arch, dataset=dataset, model_dir=model_dir, emb_path=emb_path, test=test, patience=patience)
 
     # Train the network
-    wandb.agent(sweep_id, train, count=25)
+    wandb.agent(sweep_id, train, count=50)
 
 
-def wandb_run(arch, emb_path, sweep_seed, test, model_dir = './models/'):
+def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'):
     wandb.login()
 
     sweep_config = {
@@ -122,26 +122,26 @@ def wandb_run(arch, emb_path, sweep_seed, test, model_dir = './models/'):
         os.makedirs(model_dir)
 
     # torch_baseline, torch_quantum, lambeq
-    train = build_train(arch=arch, model_dir=model_dir, emb_path=emb_path, test=test, patience=None)
+    train = build_train(arch=arch, dataset=dataset, model_dir=model_dir, emb_path=emb_path, test=test, patience=None)
 
     # Train the network
     wandb.agent(sweep_id, train)
 
 
-def inference(model_name, emb_path, test, model_dir = './models/'):
+def inference(dataset, model_name, emb_path, test, model_dir = './models/'):
     # If no file exist with model_name, crash
     if not os.path.exists(model_dir + model_name):
         raise ValueError(f'Model {model_name} not found in {model_dir}')
     
-    infer(model_name, model_dir, emb_path, test)
+    infer(dataset, model_name, model_dir, emb_path, test)
 
 
-def inference_simplified(model_name, emb_path, model_dir = './models/'):
+def inference_simplified(dataset, model_name, emb_path, model_dir = './models/'):
     # If no file exist with model_name, crash
     if not os.path.exists(model_dir + model_name):
         raise ValueError(f'Model {model_name} not found in {model_dir}')
     
-    infer_simplified(model_name, model_dir, emb_path)
+    infer_simplified(dataset, model_name, model_dir, emb_path)
 
 
 def main():  # pragma: no cover
@@ -151,22 +151,22 @@ def main():  # pragma: no cover
 
     To run sweep:
     ```
-    python -m ham_classifier --arch ham --mode sweep
+    python -m ham_classifier --arch ham --dataset sst2 --mode sweep
     ```
 
     To run inference:
     ```
-    python -m ham_classifier --arch ham --mode inference --model_name <model_name>
+    python -m ham_classifier --arch ham --dataset sst2 --mode inference --model_name <model_name>
     ```
 
     To run inference with decomposed Hamiltonians:
     ```
-    python -m ham_classifier --arch ham --mode inference_simplified --model_name <model_name>
+    python -m ham_classifier --arch ham --dataset sst2 --mode inference_simplified --model_name <model_name>
     ```
     
     To run a single model over many seeds:
     ```
-    python -m ham_classifier --arch ham --mode run --sweep_seed
+    python -m ham_classifier --arch ham --dataset sst2 --mode run --sweep_seed
     ```
 
     """
@@ -174,28 +174,28 @@ def main():  # pragma: no cover
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, required=True, help='Mode to run. Options: sweep, run, inference')
     parser.add_argument('--arch', type=str, default=None, help='Architecture to train. Options: ham, baseline')
+    parser.add_argument('--dataset', type=str, required=True, help='Dataset to use. Options: sst2, imdb')
     parser.add_argument('--emb_path', type=str, default='./embeddings/GoogleNews-vectors-negative300.bin.gz', help='Path to word2vec embeddings')
     parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
     parser.add_argument('--test', action='store_true', help='Use original sst2 splits.')
     parser.add_argument('--model_dir', type=str, default='./models/', help='Directory to save models')
     parser.add_argument('--model_name', type=str, help='Name of the model')
     parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
-    parser.add_argument('--data_path', type=str, default='./data/sst2', help='Path to decomposed Hamiltonian data')
     args = parser.parse_args()
     mode = args.mode
     arch = args.arch
+    dataset = args.dataset
     emb_path = args.emb_path
     sweep_seed = args.sweep_seed
     test = args.test
     model_name = args.model_name
     patience = args.patience
-    data_path = args.data_path
 
     if mode == 'sweep':
-        wandb_sweep(arch, emb_path, sweep_seed, test, patience=patience)
+        wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience=patience)
     elif mode == 'inference':
-        inference(model_name, emb_path, test)
+        inference(dataset, model_name, emb_path, test) 
     elif mode == 'inference_simplified':
-        inference_simplified(model_name, emb_path)
+        inference_simplified(dataset, model_name, emb_path)
     elif mode == 'run':
-        wandb_run(arch, emb_path, sweep_seed, test)
+        wandb_run(arch, dataset, emb_path, sweep_seed, test)

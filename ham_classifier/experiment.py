@@ -71,22 +71,39 @@ def epoch_metrics(cumu_loss, cumu_tp, cumu_tn, cumu_fp, cumu_fn, len_dataset):
     return loss, acc, f1
 
 
-def build_dataset(config, test, shuffle=True, eval_batch_size=256, batch_size=None):
-    # Loads dataset from hf
-    datasets = load_dataset("sst2")
+def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batch_size=None):
     if batch_size is None:
         assert hasattr(config,'batch_size'), 'Batch size must be provided for torch dataset'
         batch_size = config.batch_size
+    
+    # Loads dataset from hf
+    if dataset == 'sst2':
+        datasets = load_dataset("sst2")
 
-    if test == False:
-        train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
-        dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
-        test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
+        if test == False:
+            train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
+            dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
+            test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
+        else:
+            train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
+            dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
+            test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
+            train_dataset = torch.utils.data.ConcatDataset([train_dataset, dev_dataset])
+    elif dataset == 'imdb':
+        datasets = load_dataset("stanfordnlp/imdb")
+
+        if test == False:
+            train_dataset = CustomDataset(datasets["train"], data_key='text', label_key='label')
+            dev_dataset = CustomDataset(datasets["test"], data_key='text', label_key='label')
+            test_dataset = CustomDataset(datasets["unsupervised"], data_key='text', label_key='label')
+        else:
+            train_dataset = CustomDataset(datasets["train"], data_key='text', label_key='label')
+            dev_dataset = CustomDataset(datasets["test"], data_key='text', label_key='label')
+            test_dataset = CustomDataset(datasets["unsupervised"], data_key='text', label_key='label')
+            train_dataset = torch.utils.data.ConcatDataset([train_dataset, dev_dataset])
     else:
-        train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
-        dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
-        test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
-        train_dataset = torch.utils.data.ConcatDataset([train_dataset, dev_dataset])
+        raise ValueError('Invalid dataset name')
+
 
     # Create data loaders
     train_loader = DataLoader(
@@ -155,7 +172,7 @@ def build_optimizer(model, config, momentum=0.9):
     return optimizer
 
 
-def build_parameters(arch, emb_path, device, test, config):
+def build_parameters(arch, dataset, emb_path, device, test, config):
     '''
     Builds model, datasets and optimizer
     '''
@@ -164,7 +181,7 @@ def build_parameters(arch, emb_path, device, test, config):
     assert embedding.emb_dim == config.emb_dim, 'Embedding dimension mismatch'
 
     # Load datasets
-    all_datasets = build_dataset(config, test)
+    all_datasets = build_dataset(dataset, config, test)
     # Build model
     model = build_model(arch, config)
     # Load embeddings
@@ -176,7 +193,7 @@ def build_parameters(arch, emb_path, device, test, config):
     return model, all_datasets, optimizer, embedding
 
 
-def build_train(arch, model_dir, emb_path, test, patience=5):
+def build_train(arch, dataset, model_dir, emb_path, test, patience=5):
     '''
     Builds a training function with just a config arg
     Necessary for wandb sweep
@@ -193,7 +210,7 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
 
             # Build model, datasets and optimizer
             print('Building model, datasets, optimizer and embedding...')
-            model, all_datasets, optimizer, embedding = build_parameters(arch, emb_path, device=device, test=test, config=config)
+            model, all_datasets, optimizer, embedding = build_parameters(arch, dataset, emb_path, device=device, test=test, config=config)
             print('Done.')
             print(f'Now evaluating model: {model.kwargs}')
             
@@ -354,7 +371,7 @@ def build_train(arch, model_dir, emb_path, test, patience=5):
     return train
 
 
-def infer(model_name, model_dir, emb_path, test):
+def infer(dataset, model_name, model_dir, emb_path, test):
     '''
     Inference function
     '''
@@ -382,7 +399,7 @@ def infer(model_name, model_dir, emb_path, test):
 
     # Load dataset
     print('Loading dataset...')
-    all_datasets = build_dataset(model_kwargs, test, batch_size=256)
+    all_datasets = build_dataset(dataset, model_kwargs, test, batch_size=256)
     if test:
         _, _, data_loader = all_datasets
     else:
@@ -528,7 +545,7 @@ def infer(model_name, model_dir, emb_path, test):
     
 #     print('Current memory allocated: ', torch.cuda.memory_allocated())
 
-def infer_simplified(model_name, model_dir, emb_path, coeff_steps=1000):
+def infer_simplified(dataset, model_name, model_dir, emb_path, coeff_steps=1000):
     # Finds device to run on
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(f'Running on {device}')
@@ -540,7 +557,7 @@ def infer_simplified(model_name, model_dir, emb_path, coeff_steps=1000):
 
     # Load dataset
     print('Loading dataset...')
-    all_datasets = build_dataset(model_kwargs, test=False, batch_size=128, eval_batch_size=128)
+    all_datasets = build_dataset(dataset, model_kwargs, test=False, batch_size=128, eval_batch_size=128)
     _, data_loader, _ = all_datasets
     print('Done.')
 
