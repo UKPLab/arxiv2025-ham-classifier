@@ -12,7 +12,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
     def __init__(self, emb_dim, circ_in, 
                  bias, pos_enc, batch_norm,
-                 max_len=300, *args, **kwargs) -> None:
+                 max_len=1024, *args, **kwargs) -> None:
         '''
         emb_dim: size of the embedding
         hamiltonian: 'pure' or 'mixed'
@@ -84,6 +84,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Build hamiltonians
         # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
         if self.pos_enc == 'learned':
+            
             pos_enc = self.pos_param[:x.shape[1]].type(torch.complex64)
             x = torch.einsum('s, bsi, bsj -> bij', pos_enc, x, x) / seq_lengths.view(-1, 1, 1)
         elif self.pos_enc == 'none':
@@ -117,9 +118,9 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         if self.circ_in == 'sentence': # Mean of sentence
             sent = x.mean(dim=1).reshape(-1, self.emb_size) # (batch_size, emb_dim)
             sent = torch.nn.functional.pad(sent, (0, 2**self.n_wires - self.emb_size))
-            sent = sent / torch.norm(sent).view(-1, 1)
+            sent = sent / torch.norm(sent, dim=1).view(-1, 1)
             sent = self.circuit(sent)
-            sent = sent.repeat(x.shape[0], 1)
+            # sent = sent.repeat(x.shape[0], 1)
             return sent
         elif self.circ_in == 'zeros': # Zero state
             sent = torch.zeros(2**self.n_wires, dtype=torch.complex64).to(device)
@@ -161,6 +162,12 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         '''
         x = x.type(torch.complex64).to(device)
         seq_lengths = seq_lengths.to(device)
+
+        # If the sentence is too long, truncate it
+        if x.shape[1] > self.max_len:
+            x = x[:, :self.max_len]
+            seq_lengths = torch.minimum(seq_lengths, torch.tensor(self.max_len).to(device))
+
 
         state = self.state(x) # Get state/sent emb
         ham = self.hamiltonian(x, seq_lengths) # Get hamiltonian
