@@ -124,14 +124,19 @@ def build_model(arch, config):
         assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for hamiltonian model'
         assert hasattr(config,'pos_enc'), 'Positional encoding must be provided for hamiltonian model'
         assert hasattr(config,'batch_norm'), 'Batch normalization must be provided for hamiltonian model'
+        assert hasattr(config,'n_paulis'), 'Number of paulis must be provided for hamiltonian model'
+        assert hasattr(config,'strategy'), 'Strategy must be provided for hamiltonian model'
+        assert hasattr(config,'n_wires'), 'Number of wires must be provided for hamiltonian model'
 
         return HamiltonianClassifier(emb_dim=config.emb_dim, circ_in=config.circ_in, 
                                      bias=config.bias, gates=config.gates, n_reps=config.n_reps,
-                                     pos_enc=config.pos_enc, batch_norm=config.batch_norm)
+                                     pos_enc=config.pos_enc, batch_norm=config.batch_norm,
+                                     n_paulis=config.n_paulis, strategy=config.strategy, n_wires=config.n_wires)
     elif arch == 'rnn' or arch == 'lstm':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for recurrent model'
         assert hasattr(config,'hidden_dim'), 'Hidden dimension must be provided for recurrent model'
         assert hasattr(config,'rnn_layers'), 'Number of rnn layers must be provided for recurrent model'
+
         return RecurrentClassifier(emb_dim=config.emb_dim, hidden_dim=config.hidden_dim, 
                                    rnn_layers=config.rnn_layers, architecture=arch)
     elif arch == 'circ':

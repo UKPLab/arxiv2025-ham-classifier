@@ -221,7 +221,7 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                     'n_pos_enc_params': pos_enc_params, 'n_all_params': all_params,
                     'n_clas_params': clas_params}
         return n_params
-
+    
 
 class MLPClassifier(nn.Module, KWArgsMixin):
     '''

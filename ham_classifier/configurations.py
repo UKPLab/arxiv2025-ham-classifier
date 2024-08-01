@@ -51,6 +51,15 @@ sweep_ham = {
     'n_reps': {
         'values': [8, 16, 32]
         },
+    'strategy': {
+        'value': 'full'
+        },
+    'n_paulis': {
+        'value': None
+        },
+    'n_wires': {
+        'value': None
+        },
 }
 
 sweep_ham_peffbias = {
@@ -79,7 +88,55 @@ sweep_ham_peffbias = {
     'n_reps': {
         'values': [8, 16, 32]
         },
+    'strategy': {
+        'value': 'full'
+        },
+    'n_paulis': {
+        'value': None
+        },
+    'n_wires': {
+        'value': None
+        },
 }
+
+
+sweep_ham_sim = {
+    'strategy': {
+        'value': 'simplified'
+        },
+    'circ_in': {
+        'value': ['sentence','zeros']
+        },
+    'bias': {
+        'value': ['matrix', 'vector', 'none']
+        },
+    'batch_norm': {
+        'value': True
+        },
+    'pos_enc': {
+        'value': 'none' # Not used
+        },
+    'gates': {
+        'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
+                    ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'], # Circuit 6 of Sim et al 2019
+                    #['rx', 'rz', 'crz_all_to_all', 'rx', 'rz'], # Circuit 5 of Sim et al 2019
+                    #['ry', 'crz_ring', 'ry', 'crz_ring'], # Circuit 13 of Sim et al 2019
+                    ['ry', 'crx_ring', 'ry', 'crx_ring'], # Circuit 14 of Sim et al 2019
+                    ['rx', 'ry', 'rz'], # Control circuit without entanglement
+                    #['i'] # Control empty circuit 
+                    ]
+        },
+    'n_reps': {
+        'values': [8, 16, 32]
+        },
+    'n_paulis': {
+        'values': [10, 100, 500, 1000]
+        },
+    'n_wires': {
+        'values': [8, 9, 10]
+        },
+}
+
 
 sweep_circ = {
     'bias': {
@@ -164,6 +221,15 @@ run_ham = {
         },
     'n_reps': {
         'value': 16
+        },
+    'strategy': {
+        'value': 'full'
+        },
+    'n_paulis': {
+        'value': None
+        },
+    'n_wires': {
+        'value': None
         },
 }
 
@@ -347,6 +413,15 @@ run_ablation_peffbias = {
     'n_reps': {
         'value': 16
         },
+    'strategy': {
+        'value': 'full'
+        },
+    'n_paulis': {
+        'value': None
+        },
+    'n_wires': {
+        'value': None
+        },
 }
 
 run_ablation_nobias = { 
@@ -386,6 +461,15 @@ run_ablation_nobias = {
     'n_reps': {
         'value': 16
         },
+    'strategy': {
+        'value': 'full'
+        },
+    'n_paulis': {
+        'value': None
+        },
+    'n_wires': {
+        'value': None
+        },
 }
 
 run_ablation_sentin = { 
@@ -424,6 +508,15 @@ run_ablation_sentin = {
         },
     'n_reps': {
         'value': 16
+        },
+    'strategy': {
+        'value': 'full'
+        },
+    'n_paulis': {
+        'value': None
+        },
+    'n_wires': {
+        'value': None
         },
 }
 
@@ -500,5 +593,14 @@ run_ablation_hamhad = {
         },
     'n_reps': {
         'value': 16
+        },
+    'strategy': {
+        'value': 'full'
+        },
+    'n_paulis': {
+        'value': None
+        },
+    'n_wires': {
+        'value': None
         },
 }
