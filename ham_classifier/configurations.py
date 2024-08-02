@@ -27,16 +27,16 @@ sweep_global = {
 
 sweep_ham = {
     'circ_in': {
-        'values': ['sentence','zeros']
+        'values': ['zeros']#['sentence','zeros']
         },
     'bias': {
-        'values': ['matrix', 'vector', 'none'] #'diag', 'single',
+        'values': ['matrix', 'vector']#, 'none'] #'diag', 'single',
         },
     'batch_norm': {
         'value': True
         },
     'pos_enc': {
-        'values': ['learned','none']
+        'values': ['none'] #'learned'
         },
     'gates': {
         'values': [#['ry', 'rz', 'cnot_ring', 'ry','rz'], # Proposed in qiskit's EfficientSU2
@@ -160,7 +160,7 @@ run_ham = {
         'value': 'none'
         },
     'gates': {
-        'value':    ['ry', 'crx_ring', 'ry', 'crx_ring'] # Circuit 14 of Sim et al 2019
+        'value':    ['rx', 'rz', 'crx_all_to_all', 'rx', 'rz'] # Circuit 6 of Sim et al 2019 #['ry', 'crx_ring', 'ry', 'crx_ring'] # Circuit 14 of Sim et al 2019
         },
     'n_reps': {
         'value': 16
