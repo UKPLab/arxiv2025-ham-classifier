@@ -363,9 +363,9 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5):
 
             # Save the best model
             if test == False:
-                save_path = os.path.join(model_dir, f'model_{arch}_{wandb.run.name}.pth')
+                save_path = os.path.join(model_dir, f'model_{dataset}_{arch}_{wandb.run.name}.pth')
             else:
-                save_path = os.path.join(model_dir, f'model_{arch}_{wandb.run.name}_test.pth')
+                save_path = os.path.join(model_dir, f'model_{dataset}_{arch}_{wandb.run.name}_test.pth')
             torch.save([model.kwargs, model.state_dict()], save_path)
 
             del model

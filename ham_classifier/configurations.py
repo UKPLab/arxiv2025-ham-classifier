@@ -105,10 +105,10 @@ sweep_ham_sim = {
         'value': 'simplified'
         },
     'circ_in': {
-        'value': ['sentence','zeros']
+        'values': ['sentence','zeros']
         },
     'bias': {
-        'value': ['matrix', 'vector', 'none']
+        'values': ['matrix', 'vector', 'none']
         },
     'batch_norm': {
         'value': True

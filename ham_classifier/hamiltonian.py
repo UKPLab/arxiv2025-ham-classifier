@@ -38,15 +38,6 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         else:
             self.batch_norm = None
         
-        if bias == 'matrix':
-            self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
-        if bias == 'vector':
-            self.bias_param = nn.Parameter(torch.rand((emb_dim, 1)), )
-        elif bias == 'diag':
-            self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 1)), )
-        elif bias == 'single':
-            self.bias_param = nn.Parameter(torch.rand((1, 1)), )
-        
         if strategy == 'full':
             self.n_wires = (emb_dim - 1).bit_length() # Next power of 2 of log(emb_size)
             self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
@@ -75,6 +66,15 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                 measurements.append(pauli)
             self.measurements = torch.stack(measurements).to(device)
             self.measurement_map = nn.Linear(emb_dim, n_paulis, dtype=torch.complex64)
+
+        if bias == 'matrix':
+            self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
+        if bias == 'vector':
+            self.bias_param = nn.Parameter(torch.rand((emb_dim, 1)), )
+        elif bias == 'diag':
+            self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 1)), )
+        elif bias == 'single':
+            self.bias_param = nn.Parameter(torch.rand((1, 1)), )
 
         KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, 
                              bias=bias, batch_norm=batch_norm, n_paulis=n_paulis,
