@@ -64,6 +64,13 @@ def X():
     return torch.tensor([[0, 1], [1, 0]], dtype=torch.complex64).to(device)
 
 
+def Y():
+    '''
+    Builds the Pauli-Y gate
+    '''
+    return torch.tensor([[0, -1j], [1j, 0]], dtype=torch.complex64).to(device)
+
+
 def RY(theta):
     '''
     Builds the rotation matrix around Y axis
@@ -527,3 +534,123 @@ class PauliCircuit(Circuit):
         if self.pauli == 'z':
             self.paulis = [pauli_Z_observable(self.n_wires, i) for i in range(self.n_wires)]
             self.paulis = torch.stack(self.paulis)
+
+
+class QLSTM(nn.Module, UpdateMixin):
+    '''
+    Quantum LSTM as implemented in https://github.com/rdisipio/qlstm
+    Uses internally defined PauliCircuit instead of PennyLane
+    '''
+    def __init__(self, 
+                input_size, 
+                hidden_size, 
+                n_qubits=4,
+                n_qlayers=1,
+                gates=['rx', 'ry', 'rz'],
+                batch_first=True,
+                return_sequences=False, 
+                return_state=False,
+                backend="default.qubit.torch"):
+        super(QLSTM, self).__init__()
+        self.n_inputs = input_size
+        self.hidden_size = hidden_size
+        self.concat_size = self.n_inputs + self.hidden_size
+        self.n_qubits = n_qubits
+        self.n_qlayers = n_qlayers
+        self.backend = backend  # "default.qubit", "qiskit.basicaer", "qiskit.ibm"
+        self.gates = gates
+        self.batch_first = batch_first
+        self.return_sequences = return_sequences
+        self.return_state = return_state
+
+        self.clayer_in = torch.nn.Linear(self.concat_size, n_qubits)
+        self.VQC = {
+            'forget': PauliCircuit(n_wires=n_qubits, gates=self.gates, 
+                                                 n_reps=n_qlayers, pauli='z'),
+            'input': PauliCircuit(n_wires=n_qubits, gates=self.gates, 
+                                                 n_reps=n_qlayers, pauli='z'),
+            'update': PauliCircuit(n_wires=n_qubits, gates=self.gates, 
+                                                 n_reps=n_qlayers, pauli='z'),
+            'output': PauliCircuit(n_wires=n_qubits, gates=self.gates, 
+                                                 n_reps=n_qlayers, pauli='z'),
+        }
+
+        self.clayer_out = torch.nn.Linear(self.n_qubits, self.hidden_size)
+        self.update()
+
+    def forward(self, x, seq_lengths, init_states=None):
+        '''
+        x.shape is (batch_size, seq_length, feature_size)
+        recurrent_activation -> sigmoid
+        activation -> tanh
+        '''
+        if self.batch_first is True:
+            batch_size, max_seq_length, features_size = x.size()
+        else:
+            max_seq_length, batch_size, features_size = x.size()
+
+        hidden_seq = []
+        if init_states is None:
+            h_t = torch.zeros(batch_size, self.hidden_size).to(device)  # hidden state (output)
+            c_t = torch.zeros(batch_size, self.hidden_size).to(device)  # cell state
+        else:
+            # for now we ignore the fact that in PyTorch you can stack multiple RNNs
+            # so we take only the first elements of the init_states tuple init_states[0][0], init_states[1][0]
+            h_t, c_t = init_states
+            h_t = h_t[0]
+            c_t = c_t[0]
+
+        for t in range(max_seq_length):
+            # get features from the t-th element in seq, for all entries in the batch
+            x_t = x[:, t, :]
+            
+            # Concatenate input and hidden state
+            v_t = torch.cat((h_t, x_t), dim=1)
+
+            # match qubit dimension
+            y_t = angle_embedding(self.clayer_in(v_t), n_wires=self.n_qubits)
+
+            f_t = torch.sigmoid(self.clayer_out(self.VQC['forget'](y_t)))  # forget block
+            i_t = torch.sigmoid(self.clayer_out(self.VQC['input'](y_t)))  # input block
+            g_t = torch.tanh(self.clayer_out(self.VQC['update'](y_t)))  # update block
+            o_t = torch.sigmoid(self.clayer_out(self.VQC['output'](y_t))) # output block
+
+            c_t = (f_t * c_t) + (i_t * g_t)
+            h_t = o_t * torch.tanh(c_t)
+
+            hidden_seq.append(h_t.unsqueeze(0))
+        hidden_seq = torch.cat(hidden_seq, dim=0)
+        hidden_seq = hidden_seq.transpose(0, 1).contiguous()
+
+        # Calculate the indices of the last valid elements
+        last_valid_indices = (seq_lengths - 1).to(device=device)
+
+        # Use torch.gather to extract the last valid elements
+        last_valid_elements = torch.gather(hidden_seq, 1, last_valid_indices.view(-1, 1, 1).expand(-1, 1, hidden_seq.size(2)))
+        qlstm_output = last_valid_elements.view(hidden_seq.size(0), hidden_seq.size(2))
+
+        assert last_valid_elements.size(0) == input.size(0), 'Batch size mismatch'
+        
+                
+        # return hidden_seq, (h_t, c_t)
+
+    def to(self, device):
+        super().to(device)
+        for vqc in self.VQC.values():
+            vqc.to(device)
+        return self
+
+    def update(self):
+        for vqc in self.VQC.values():
+            vqc.update()
+    
+    def get_n_params(self):
+        n_all_params = sum(p.numel() for p in self.parameters())
+        n_params_forget = sum(p.numel() for p in self.VQC['forget'].parameters())
+        n_params_input = sum(p.numel() for p in self.VQC['input'].parameters())
+        n_params_update = sum(p.numel() for p in self.VQC['update'].parameters())
+        n_params_output = sum(p.numel() for p in self.VQC['output'].parameters())
+        n_params = {'n_all_params': n_all_params, 'n_params_forget': n_params_forget, 
+                    'n_params_input': n_params_input, 'n_params_update': n_params_update, 
+                    'n_params_output': n_params_output}
+        return n_params

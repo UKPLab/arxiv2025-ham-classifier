@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from .circuit import Circuit, I, device
+from .circuit import  Circuit, I, X, Y, Z, device
 from .utils import KWArgsMixin, UpdateMixin
 
 
@@ -10,31 +10,63 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     Simulated classification based on a quantum Hamiltonian
     '''
 
-    def __init__(self, emb_dim, circ_in, 
-                 bias, pos_enc, batch_norm,
+    def __init__(self, emb_dim, circ_in, bias, batch_norm, n_paulis=None,
+                 strategy='full', pos_enc=None, n_wires=None,
                  max_len=1024, *args, **kwargs) -> None:
         '''
         emb_dim: size of the embedding
         hamiltonian: 'pure' or 'mixed'
         circ_in: 'sentence' or 'zeros'
         bias: 'matrix', 'vector', 'diag', 'single' or 'none'
-        pos_enc: 'learned' or 'none'
         batch_norm: bool
+        n_paulis: number of Pauli measurements
+        strategy: 'full' or 'simplified'
+        pos_enc: 'learned' or 'none'
+        n_wires: number of wires for the circuit
         max_len: maximum sentence length
         '''
         super().__init__()
+
         self.emb_size = emb_dim
         self.circ_in = circ_in
         self.bias = bias
+        self.strategy = strategy
         self.max_len = max_len
         self.pos_enc = pos_enc
-        self.n_wires = (emb_dim - 1).bit_length() # Next power of 2 of log(emb_size)
-        self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
         if batch_norm:
             self.batch_norm = nn.BatchNorm1d(1)
         else:
             self.batch_norm = None
         
+        if strategy == 'full':
+            self.n_wires = (emb_dim - 1).bit_length() # Next power of 2 of log(emb_size)
+            self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
+            if pos_enc == 'learned':
+                self.pos_param = nn.Parameter(torch.rand((max_len))).type(torch.complex64)
+            if n_wires is not None:
+                print('Warning: n_wires is ignored when strategy is full')
+            if n_paulis is not None:
+                print('Warning: n_paulis is ignored when strategy is full')
+        elif strategy == 'simplified':
+            assert n_wires is not None, 'n_wires must be defined for simplified strategy'
+            self.n_wires = n_wires
+            self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
+
+            if pos_enc is not None:
+                print('Warning: pos_enc is ignored when strategy is simplified')
+
+            # Define the Pauli measurements randomly
+            all_paulis = [I(1), X(), Y(), Z()]
+            selected = torch.randint(0, len(all_paulis), (n_paulis, self.n_wires))
+            measurements = []
+            for row in selected:
+                pauli = all_paulis[row[0]]
+                for p in row[1:]:
+                    pauli = torch.kron(pauli, all_paulis[p])
+                measurements.append(pauli)
+            self.measurements = torch.stack(measurements).to(device)
+            self.measurement_map = nn.Linear(emb_dim, n_paulis, dtype=torch.complex64)
+
         if bias == 'matrix':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
         if bias == 'vector':
@@ -43,12 +75,11 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 1)), )
         elif bias == 'single':
             self.bias_param = nn.Parameter(torch.rand((1, 1)), )
-        if pos_enc == 'learned':
-            self.pos_param = nn.Parameter(torch.rand((max_len))).type(torch.complex64)
 
         KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, 
-                 bias=bias, pos_enc=pos_enc, batch_norm=batch_norm,
-                 max_len=max_len, **kwargs)
+                             bias=bias, batch_norm=batch_norm, n_paulis=n_paulis,
+                             strategy=strategy, pos_enc=pos_enc, n_wires=n_wires,
+                             max_len=max_len, **kwargs)
         self.update()
 
     def update(self):
@@ -60,7 +91,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             self.batch_norm = self.batch_norm.to(device)
         if self.bias == 'matrix' or self.bias == 'vector':
             self.bias_param = self.bias_param.to(device)
-        if self.pos_enc == 'learned':
+        if self.pos_enc == 'learned' and self.strategy == 'full':
             self.pos_param = self.pos_param.to(device)
         return self
 
@@ -72,6 +103,14 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         Returns:
         (batch_size, 2**n_wires, 2**n_wires)
         '''
+        if self.strategy == 'full':
+            return self._hamiltonian_full(x, seq_lengths)
+        elif self.strategy == 'simplified':
+            return self._hamiltonian_sim(x, seq_lengths)
+        else:
+            raise ValueError(f'Unknown strategy {self.strategy}')
+
+    def _hamiltonian_full(self, x, seq_lengths):
         x = x.type(torch.complex64).to(device)
         seq_lengths = seq_lengths.to(device)
         
@@ -84,7 +123,6 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Build hamiltonians
         # Outer product from (batch_size, sent_len, emb_dim) to (batch_size, emb_size, emb_size)
         if self.pos_enc == 'learned':
-            
             pos_enc = self.pos_param[:x.shape[1]].type(torch.complex64)
             x = torch.einsum('s, bsi, bsj -> bij', pos_enc, x, x) / seq_lengths.view(-1, 1, 1)
         elif self.pos_enc == 'none':
@@ -95,6 +133,37 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
         x = torch.nn.functional.pad(
             x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
+
+        # Add bias
+        if self.bias == 'matrix': # Full matrix
+            h0 = self.bias_param.triu() + self.bias_param.triu(1).H
+        elif self.bias == 'vector': # Done before
+            h0 = torch.zeros_like(x[0])
+        elif self.bias == 'diag': # Diagonal matrix
+            h0 = torch.diag(self.bias_param.view(-1))
+        elif self.bias == 'single': # Constant * Identity
+            h0 = self.bias_param * I(self.n_wires)
+        elif self.bias == 'none': # No bias
+            h0 = torch.zeros_like(x[0])
+        else:
+            raise ValueError(f'Unknown bias {self.bias}')
+        x = x + h0
+        x = torch.nn.functional.normalize(x,dim=0)
+        return x
+    
+    def _hamiltonian_sim(self, x, seq_lengths):
+        x = x.type(torch.complex64).to(device)
+        seq_lengths = seq_lengths.to(device)
+        
+        # Add vector bias
+        if self.bias == 'vector':
+            batch_bias = [self.bias_param.view(1, -1).repeat(l, 1) for l in seq_lengths]
+            batch_bias = nn.utils.rnn.pad_sequence(batch_bias, batch_first=True)
+            x += batch_bias
+        
+        x = self.measurement_map(x)
+
+        x = torch.einsum('bsp, pij -> bij', x, self.measurements) / seq_lengths.view(-1, 1, 1)
 
         # Add bias
         if self.bias == 'matrix': # Full matrix
