@@ -13,7 +13,7 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir =
 
     sweep_config = {
         'method': 'random',
-        'name' : f'sentemb_{arch}_sweep',
+        'name' : f'{dataset}_{arch}_sweep',
         }
     metric = {
         'name': 'loss',
@@ -73,7 +73,7 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'
 
     sweep_config = {
         'method': 'grid',
-        'name' : f'sentemb_{arch}_run',
+        'name' : f'{dataset}_{arch}_run',
         }
     metric = {
         'name': 'loss',
