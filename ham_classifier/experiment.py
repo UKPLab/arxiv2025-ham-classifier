@@ -17,7 +17,7 @@ from .baseline import (BagOfWordsClassifier, MLPClassifier,
 from .circuit import decompose_hamiltonians, pauli2matrix
 from .dataloading import (CustomDataset, DecompositionDataset,
                           decomposition_collate_fn)
-from .embedding import Embedder
+from .embedding import NLTKEmbedder
 from .hamiltonian import HamiltonianClassifier
 from .utils import DotDict
 
@@ -41,7 +41,7 @@ def load_model(model_name, model_dir, device):
 def load_embedding(emb_path):
     # Load embedding
     print('Loading embedding...')
-    embedding = Embedder(weights_path = emb_path)
+    embedding = NLTKEmbedder(weights_path = emb_path)
     print('Done.')
     return embedding
 
@@ -182,7 +182,7 @@ def build_parameters(arch, dataset, emb_path, device, test, config):
     Builds model, datasets and optimizer
     '''
     # Load embedding here
-    embedding = Embedder(weights_path = emb_path,  vocab_size=config.vocab_size)
+    embedding = NLTKEmbedder(weights_path = emb_path,  vocab_size=config.vocab_size)
     assert embedding.emb_dim == config.emb_dim, 'Embedding dimension mismatch'
 
     # Load datasets
@@ -398,7 +398,7 @@ def infer(dataset, model_name, model_dir, emb_path, test):
 
     # Load embedding here
     print('Loading embedding...')
-    embedding = Embedder(weights_path = emb_path)
+    embedding = NLTKEmbedder(weights_path = emb_path)
     assert embedding.emb_dim == model_kwargs.emb_dim, 'Embedding dimension mismatch'
     print('Done.')
 

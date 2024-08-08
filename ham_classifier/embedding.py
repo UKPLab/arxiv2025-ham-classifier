@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 
 import torch
+import nltk
 import torch.nn as nn
 from gensim.models import KeyedVectors
-
+from nltk.tokenize import RegexpTokenizer
 from .utils import KWArgsMixin
 
 
@@ -131,3 +132,28 @@ class Embedder(nn.Module, KWArgsMixin):
             return [self._key_to_index[k] if k in self._key_to_index else self._key_to_index['<unk>'] for k in key]
         else:
             return self._key_to_index[key] if key in self._key_to_index else self._key_to_index['<unk>']
+
+class NLTKEmbedder(Embedder):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        nltk.download('punkt')
+        self.tokenizer = RegexpTokenizer(r'\w+')  # Tokenizer to remove punctuation
+
+    def forward(self, text):
+        # Converts text into a list of indices
+        if isinstance(text, str):
+            text = [text]
+
+        tokens = [self.tokenizer.tokenize(t.lower()) for t in text]
+        indices = [[self._key_to_index[word] if word in self._key_to_index else self._key_to_index['<unk>'] if '<unk>' in self._key_to_index else 0 for word in sentence] for sentence in tokens]
+        
+        indices = [torch.LongTensor(sentence).to(device=self.embedding.weight.device) for sentence in indices]
+        seq_lengths = [len(sentence) for sentence in indices]
+        seq_lengths = torch.tensor(seq_lengths)
+        if self.padding == 'zeros':
+            torch_embedding = [self.embedding(idx) for idx in indices]
+            torch_embedding = nn.utils.rnn.pad_sequence(torch_embedding, batch_first=True)
+        else:
+            torch_embedding = [self.embedding(sentence) for sentence in indices]
+        # Tensor of size (n sentences, n words, embedding_dim)
+        return torch_embedding, seq_lengths

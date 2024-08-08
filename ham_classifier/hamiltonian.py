@@ -58,6 +58,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             # Define the Pauli measurements randomly
             all_paulis = [I(1), X(), Y(), Z()]
             selected = torch.randint(0, len(all_paulis), (n_paulis, self.n_wires))
+            # TODO: save both selected and measurements for model loading later
             measurements = []
             for row in selected:
                 pauli = all_paulis[row[0]]

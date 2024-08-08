@@ -55,7 +55,7 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir =
 
     sweep_config['parameters'] = global_params
 
-    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v1")
+    sweep_id = wandb.sweep(sweep_config, project="ham-clas-v1")
 
     
     if not os.path.exists(model_dir):
@@ -119,7 +119,7 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'
 
     sweep_config['parameters'] = global_params
 
-    sweep_id = wandb.sweep(sweep_config, project="quantum-sent-emb-v2")
+    sweep_id = wandb.sweep(sweep_config, project="ham-clas-v2")
 
     
     if not os.path.exists(model_dir):

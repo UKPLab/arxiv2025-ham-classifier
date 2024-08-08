@@ -6,12 +6,13 @@ from .circuit import (CNOT, CZ, RX, RY, RZ, Circuit, CRXAllToAll, CRXRing,
                       pauli2matrix, pauli_Z_observable)
 from .dataloading import (CustomDataset, DecompositionDataset,
                           decomposition_collate_fn)
-from .embedding import Embedder
+from .embedding import Embedder, NLTKEmbedder
 from .hamiltonian import HamiltonianClassifier
 from .utils import KWArgsMixin, UpdateMixin
 
 __all__ = [
     "Embedder",
+    "NLTKEmbedder",
     "KWArgsMixin",
     "UpdateMixin",
     "RecurrentClassifier",
