@@ -136,7 +136,7 @@ class Embedder(nn.Module, KWArgsMixin):
 class NLTKEmbedder(Embedder):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        nltk.download('punkt')
+        nltk.download('punkt', download_dir='./nltk_data')
         self.tokenizer = RegexpTokenizer(r'\w+')  # Tokenizer to remove punctuation
 
     def forward(self, text):
