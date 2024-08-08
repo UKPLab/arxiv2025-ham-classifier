@@ -55,6 +55,8 @@ class RecurrentClassifier(nn.Module, KWArgsMixin):
 
         # Sort the input by decreasing sequence length, required by pack_padded_sequence
         sort_seq_length, perm_idx = seq_lengths.sort(descending=True)
+        # Set sort_seq_length to 1 if the sequence length is 0
+        sort_seq_length[sort_seq_length <= 0] = 1
         input = input[perm_idx]
 
         packed_seq_batch = nn.utils.rnn.pack_padded_sequence(input, lengths=sort_seq_length, batch_first=True)

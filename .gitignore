@@ -137,3 +137,4 @@ sketch*
 wandb/
 plots_old/
 .vscode
+nltk_data/
