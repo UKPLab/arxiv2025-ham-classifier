@@ -1,5 +1,4 @@
 import pickle
-
 import torch
 
 
@@ -17,6 +16,19 @@ class CustomDataset(torch.utils.data.Dataset):
         data = sample[self.data_key]
         label = sample[self.label_key]
         return {'idx': idx, 'data': data, 'label': label}
+    
+class CustomMNISTDataset(torch.utils.data.Dataset):
+    def __init__(self, dataset, indices):
+        self.dataset = dataset
+        self.indices = indices
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        dataset_idx = self.indices[idx].item()
+        data, label = self.dataset[dataset_idx]
+        return {'idx': dataset_idx, 'data': data, 'label': label}
     
 
 def decomposition_collate_fn(batch):

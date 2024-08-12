@@ -4,7 +4,9 @@ import time
 
 import numpy as np
 import pandas as pd
-import torch
+from torchvision import transforms
+from torchvision import datasets as tv_datasets
+
 from datasets import concatenate_datasets, load_dataset
 from torch import nn
 from torch.utils.data import DataLoader
@@ -15,11 +17,12 @@ import wandb
 from .baseline import (BagOfWordsClassifier, MLPClassifier,
                        QuantumCircuitClassifier, RecurrentClassifier)
 from .circuit import decompose_hamiltonians, pauli2matrix
-from .dataloading import (CustomDataset, DecompositionDataset,
+from .dataloading import (CustomDataset, DecompositionDataset, CustomMNISTDataset,
                           decomposition_collate_fn)
-from .embedding import NLTKEmbedder
+from .embedding import NLTKEmbedder, FlattenEmbedder
 from .hamiltonian import HamiltonianClassifier
 from .utils import DotDict
+import torch
 
 # wandb requires programmatically setting some components starting from simple string hyperparameters
 # The following functions achieve this
@@ -101,6 +104,36 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
             dev_dataset = CustomDataset(datasets["test"], data_key='text', label_key='label')
             test_dataset = CustomDataset(datasets["unsupervised"], data_key='text', label_key='label')
             train_dataset = torch.utils.data.ConcatDataset([train_dataset, dev_dataset])
+    elif dataset == 'mnist2':
+        from torchvision import datasets, transforms
+        import torch
+
+        # Define a transform to convert the images to tensors and normalize them
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
+
+        # Load the MNIST dataset
+        full_train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+        full_test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+
+        # Filter out the 0 and 1 digits for training and test datasets
+        train_mask = (full_train_dataset.targets == 0) | (full_train_dataset.targets == 1)
+        test_mask = (full_test_dataset.targets == 0) | (full_test_dataset.targets == 1)
+
+        # Create the filtered subsets
+        filtered_train_indices = torch.where(train_mask)[0]
+        filtered_test_indices = torch.where(test_mask)[0]
+        
+        train_dataset = CustomMNISTDataset(full_train_dataset, filtered_train_indices)
+        test_dataset = CustomMNISTDataset(full_test_dataset, filtered_test_indices)
+
+        # Split the training set into train and dev
+        train_size = int(0.8 * len(train_dataset))
+        dev_size = len(train_dataset) - train_size
+        train_dataset, dev_dataset = torch.utils.data.random_split(train_dataset, [train_size, dev_size])
+
     else:
         raise ValueError('Invalid dataset name')
 
@@ -182,8 +215,12 @@ def build_parameters(arch, dataset, emb_path, device, test, config):
     Builds model, datasets and optimizer
     '''
     # Load embedding here
-    embedding = NLTKEmbedder(weights_path = emb_path,  vocab_size=config.vocab_size)
-    assert embedding.emb_dim == config.emb_dim, 'Embedding dimension mismatch'
+    if dataset == 'sst2' or dataset == 'imdb':
+        embedding = NLTKEmbedder(weights_path = emb_path,  vocab_size=config.vocab_size)
+        assert embedding.emb_dim == config.emb_dim, 'Embedding dimension mismatch'
+    elif dataset == 'mnist2':
+        embedding = FlattenEmbedder(device=device)
+
 
     # Load datasets
     all_datasets = build_dataset(dataset, config, test)
@@ -398,8 +435,11 @@ def infer(dataset, model_name, model_dir, emb_path, test):
 
     # Load embedding here
     print('Loading embedding...')
-    embedding = NLTKEmbedder(weights_path = emb_path)
-    assert embedding.emb_dim == model_kwargs.emb_dim, 'Embedding dimension mismatch'
+    if dataset == 'sst2' or dataset == 'imdb':
+        embedding = NLTKEmbedder(weights_path = emb_path,  vocab_size=model_kwargs.vocab_size)
+        assert embedding.emb_dim == model_kwargs.emb_dim, 'Embedding dimension mismatch'
+    elif dataset == 'mnist2':
+        embedding = FlattenEmbedder()
     print('Done.')
 
     # Load dataset

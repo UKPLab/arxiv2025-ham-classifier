@@ -159,3 +159,19 @@ class NLTKEmbedder(Embedder):
             torch_embedding = [self.embedding(sentence) for sentence in indices]
         # Tensor of size (n sentences, n words, embedding_dim)
         return torch_embedding, seq_lengths
+    
+
+class FlattenEmbedder(nn.Module):
+    '''
+    Simple embedder that converts images into vectors
+    E.g. (batch_size, height, width) -> (batch_size, 1, height * width)
+
+    '''
+    def __init__(self, device):
+        super().__init__()
+        self.device = device
+    def forward(self, x):
+        # Flatten image and return a vector of seq_lenghts = 1
+        flattened = x.view(x.size(0), 1, -1).to(device=self.device)
+        seq_lengths = torch.ones(x.size(0), dtype=torch.long) 
+        return flattened, seq_lengths

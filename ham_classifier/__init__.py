@@ -4,15 +4,16 @@ from .circuit import (CNOT, CZ, RX, RY, RZ, Circuit, CRXAllToAll, CRXRing,
                       CRZAllToAll, CRZRing, CZRing, H, I, ILayer, PauliCircuit,
                       RXLayer, RYLayer, RZLayer, Z, angle_embedding,
                       pauli2matrix, pauli_Z_observable)
-from .dataloading import (CustomDataset, DecompositionDataset,
+from .dataloading import (CustomDataset, DecompositionDataset, CustomMNISTDataset,
                           decomposition_collate_fn)
-from .embedding import Embedder, NLTKEmbedder
+from .embedding import Embedder, NLTKEmbedder, FlattenEmbedder
 from .hamiltonian import HamiltonianClassifier
 from .utils import KWArgsMixin, UpdateMixin
 
 __all__ = [
     "Embedder",
     "NLTKEmbedder",
+    "FlattenEmbedder",
     "KWArgsMixin",
     "UpdateMixin",
     "RecurrentClassifier",
@@ -43,6 +44,7 @@ __all__ = [
     "PauliCircuit",
     "angle_embedding",
     "CustomDataset",
+    "CustomMNISTDataset",
     "DecompositionDataset",
     "decomposition_collate_fn",
     ]
