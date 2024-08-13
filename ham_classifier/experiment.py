@@ -413,7 +413,7 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5):
     return train
 
 
-def infer(dataset, model_name, model_dir, emb_path, test):
+def infer(arch, dataset, model_name, model_dir, emb_path, test):
     '''
     Inference function
     '''
@@ -423,7 +423,6 @@ def infer(dataset, model_name, model_dir, emb_path, test):
 
     # Load model
     print('Loading model...')
-    arch = model_name.split('_')[1]
     model_kwargs, model_state_dict = torch.load(os.path.join(model_dir, model_name))
     model_kwargs = DotDict(model_kwargs) # Ugly trick to access kwargs as attributes
     model = build_model(arch, model_kwargs)
@@ -436,7 +435,7 @@ def infer(dataset, model_name, model_dir, emb_path, test):
     # Load embedding here
     print('Loading embedding...')
     if dataset == 'sst2' or dataset == 'imdb':
-        embedding = NLTKEmbedder(weights_path = emb_path,  vocab_size=model_kwargs.vocab_size)
+        embedding = NLTKEmbedder(weights_path = emb_path)
         assert embedding.emb_dim == model_kwargs.emb_dim, 'Embedding dimension mismatch'
     elif dataset == 'mnist2':
         embedding = FlattenEmbedder()

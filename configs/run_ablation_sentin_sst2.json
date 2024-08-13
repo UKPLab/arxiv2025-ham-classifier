@@ -1,0 +1,52 @@
+{
+    "optimizer": {
+        "value": "adam"
+    },
+    "learning_rate": {
+        "value": 0.001
+    },
+    "batch_size": {
+        "value": 128
+    },
+    "epochs": {
+        "value": 30
+    },
+    "emb_dim": {
+        "value": 300
+    },
+    "vocab_size": {
+        "value": null
+    },
+    "circ_in": {
+        "value": "sentence"
+    },
+    "bias": {
+        "value": "matrix"
+    },
+    "batch_norm": {
+        "value": true
+    },
+    "pos_enc": {
+        "value": "none"
+    },
+    "gates": {
+        "value": [
+            "ry",
+            "crx_ring",
+            "ry",
+            "crx_ring"
+        ]
+    },
+    "n_reps": {
+        "value": 16
+    },
+    "strategy": {
+        "value": "full"
+    },
+    "n_paulis": {
+        "value": null
+    },
+    "n_wires": {
+        "value": null
+    }
+}

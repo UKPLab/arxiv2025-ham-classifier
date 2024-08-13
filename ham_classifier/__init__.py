@@ -8,7 +8,7 @@ from .dataloading import (CustomDataset, DecompositionDataset, CustomMNISTDatase
                           decomposition_collate_fn)
 from .embedding import Embedder, NLTKEmbedder, FlattenEmbedder
 from .hamiltonian import HamiltonianClassifier
-from .utils import KWArgsMixin, UpdateMixin
+from .utils import KWArgsMixin, UpdateMixin, read_config
 
 __all__ = [
     "Embedder",

@@ -1,0 +1,40 @@
+{
+    "optimizer": {
+        "value": "adam"
+    },
+    "learning_rate": {
+        "value": 0.0001
+    },
+    "batch_size": {
+        "value": 64
+    },
+    "epochs": {
+        "value": 30
+    },
+    "emb_dim": {
+        "value": 300
+    },
+    "vocab_size": {
+        "value": null
+    },
+    "bias": {
+        "value": "vector"
+    },
+    "pos_enc": {
+        "value": "none"
+    },
+    "gates": {
+        "value": [
+            "ry",
+            "crx_ring",
+            "ry",
+            "crx_ring"
+        ]
+    },
+    "n_reps": {
+        "values": 32
+    },
+    "clas_type": {
+        "values": "hamiltonian"
+    }
+}

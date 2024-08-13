@@ -1,0 +1,43 @@
+{
+    "bias": {
+        "values": [
+            "vector",
+            "none"
+        ]
+    },
+    "pos_enc": {
+        "value": "none"
+    },
+    "gates": {
+        "values": [
+            [
+                "rx",
+                "rz",
+                "crx_all_to_all",
+                "rx",
+                "rz"
+            ],
+            [
+                "ry",
+                "crx_ring",
+                "ry",
+                "crx_ring"
+            ],
+            [
+                "rx",
+                "ry",
+                "rz"
+            ]
+        ]
+    },
+    "n_reps": {
+        "values": [
+            8,
+            16,
+            32
+        ]
+    },
+    "clas_type": {
+        "value": "tomography"
+    }
+}

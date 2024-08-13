@@ -4,8 +4,8 @@ import random
 
 import wandb
 
-from .configurations import *
 from .experiment import build_train, infer, infer_simplified
+from .utils import read_config
 
 
 def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir = './models/'):
@@ -22,27 +22,27 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir =
 
     sweep_config['metric'] = metric
 
-    global_params = sweep_global
+    global_params = read_config('configs/sweep_global.json')
     if arch == 'ham':
-        ham_params = sweep_ham
+        ham_params = read_config('configs/sweep_ham.json')
         global_params.update(ham_params)
     elif arch == 'circ':
-        circ_params = sweep_circ
+        circ_params = read_config('configs/sweep_circ.json')
         global_params.update(circ_params)
     elif arch == 'rnn' or arch == 'lstm':
-        rnn_params = sweep_rnn
+        rnn_params = read_config('configs/sweep_rnn.json')
         global_params.update(rnn_params)
     elif arch == 'bow':
         pass # Nothing to do
     elif arch == 'mlp':
-        mlp_params = sweep_mlp
+        mlp_params = read_config('configs/sweep_mlp.json')
         global_params.update(mlp_params)
     elif arch == 'ham_peffbias':
-        ham_params = sweep_ham_peffbias
+        ham_params = read_config('configs/sweep_ham_peffbias.json')
         global_params.update(ham_params)
         arch = 'ham'
     elif arch == 'ham_sim':
-        ham_params = sweep_ham_sim
+        ham_params = read_config('configs/sweep_ham_sim.json')
         global_params.update(ham_params)
         arch = 'ham'
     else:
@@ -83,31 +83,37 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'
     sweep_config['metric'] = metric
 
     if arch == 'ham':
-        global_params = run_ham
+        global_params = read_config(f'configs/run_ham_{dataset}.json')
+    elif arch == 'ham_peffbias':
+        global_params = read_config(f'configs/run_ham_peffbias_{dataset}.json')
+        arch = 'ham'
+    elif arch == 'ham_sim':
+        global_params = read_config(f'configs/run_ham_sim_{dataset}.json')
+        arch = 'ham'
     elif arch == 'circ':
-        global_params = run_circ
+        global_params = read_config(f'configs/run_circ_{dataset}.json')
     elif arch == 'rnn':
-        global_params = run_rnn
+        global_params = read_config(f'configs/run_rnn_{dataset}.json')
     elif arch == 'lstm':
-        global_params = run_lstm
+        global_params = read_config(f'configs/run_lstm_{dataset}.json')
     elif arch == 'bow':
-        global_params = run_bow
+        global_params = read_config(f'configs/run_bow_{dataset}.json')
     elif arch == 'mlp':
-        global_params = run_mlp
+        global_params = read_config(f'configs/run_mlp_{dataset}.json')
     elif arch == 'ablation_peffbias':
-        global_params = run_ablation_peffbias
+        global_params = read_config(f'configs/run_ablation_peffbias_{dataset}.json')
         arch = 'ham'
     elif arch == 'ablation_nobias':
-        global_params = run_ablation_nobias
+        global_params = read_config(f'configs/run_ablation_nobias_{dataset}.json')
         arch = 'ham'
     elif arch == 'ablation_sentin':
-        global_params = run_ablation_sentin
+        global_params = read_config(f'configs/run_ablation_sentin_{dataset}.json')
         arch = 'ham'
     elif arch == 'ablation_circham':
-        global_params = run_ablation_circham
+        global_params = read_config(f'configs/run_ablation_circham_{dataset}.json')
         arch = 'circ'
     elif arch == 'ablation_hamhad':
-        global_params = run_ablation_hamhad
+        global_params = read_config(f'configs/run_ablation_hamhad_{dataset}.json')
         arch = 'ham'
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
@@ -132,12 +138,12 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'
     wandb.agent(sweep_id, train)
 
 
-def inference(dataset, model_name, emb_path, test, model_dir = './models/'):
+def inference(arch, dataset, model_name, emb_path, test, model_dir = './models/'):
     # If no file exist with model_name, crash
     if not os.path.exists(model_dir + model_name):
         raise ValueError(f'Model {model_name} not found in {model_dir}')
     
-    infer(dataset, model_name, model_dir, emb_path, test)
+    infer(arch, dataset, model_name, model_dir, emb_path, test)
 
 
 def inference_simplified(dataset, model_name, emb_path, model_dir = './models/'):
@@ -198,7 +204,7 @@ def main():  # pragma: no cover
     if mode == 'sweep':
         wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience=patience)
     elif mode == 'inference':
-        inference(dataset, model_name, emb_path, test) 
+        inference(arch, dataset, model_name, emb_path, test) 
     elif mode == 'inference_simplified':
         inference_simplified(dataset, model_name, emb_path)
     elif mode == 'run':

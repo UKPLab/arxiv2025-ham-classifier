@@ -1,0 +1,66 @@
+{
+    "strategy": {
+        "value": "simplified"
+    },
+    "circ_in": {
+        "values": [
+            "zeros"
+        ]
+    },
+    "bias": {
+        "values": [
+            "vector"
+        ]
+    },
+    "batch_norm": {
+        "value": true
+    },
+    "pos_enc": {
+        "value": "none"
+    },
+    "gates": {
+        "values": [
+            [
+                "rx",
+                "rz",
+                "crx_all_to_all",
+                "rx",
+                "rz"
+            ],
+            [
+                "ry",
+                "crx_ring",
+                "ry",
+                "crx_ring"
+            ],
+            [
+                "rx",
+                "ry",
+                "rz"
+            ]
+        ]
+    },
+    "n_reps": {
+        "values": [
+            8,
+            16,
+            32
+        ]
+    },
+    "n_paulis": {
+        "values": [
+            10,
+            100,
+            500,
+            1000
+        ]
+    },
+    "n_wires": {
+        "values": [
+            6,
+            7,
+            8,
+            9
+        ]
+    }
+}

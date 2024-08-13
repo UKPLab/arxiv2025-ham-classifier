@@ -1,0 +1,11 @@
+{
+    "hidden_dim": {
+        "value": 100
+    },
+    "rnn_layers": {
+        "values": [
+            1,
+            2
+        ]
+    }
+}

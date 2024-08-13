@@ -1,3 +1,6 @@
+import json
+
+
 class KWArgsMixin:
     '''
     Enforces the presence of a kwargs attribute
@@ -33,3 +36,7 @@ class DotDict:
     def __init__(self, dictionary):
         for key, value in dictionary.items():
             setattr(self, key, value)
+
+def read_config(config_path):
+    with open(config_path, 'r') as f:
+        return json.load(f)
