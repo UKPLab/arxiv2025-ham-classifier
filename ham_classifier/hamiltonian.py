@@ -11,7 +11,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     '''
 
     def __init__(self, emb_dim, circ_in, bias, batch_norm, n_paulis=None,
-                 strategy='full', pos_enc=None, n_wires=None,
+                 pauli_strings=None, strategy='full', pos_enc=None, n_wires=None,
                  max_len=1024, *args, **kwargs) -> None:
         '''
         emb_dim: size of the embedding
@@ -54,19 +54,26 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
             if pos_enc is not None:
                 print('Warning: pos_enc is ignored when strategy is simplified')
-
+            
             # Define the Pauli measurements randomly
             all_paulis = [I(1), X(), Y(), Z()]
-            selected = torch.randint(0, len(all_paulis), (n_paulis, self.n_wires))
+            if pauli_strings is not None:
+                assert n_paulis == len(pauli_strings), 'Number of Pauli strings must match n_paulis'
+                assert pauli_strings.shape == (n_paulis, self.n_wires), 'Pauli strings must be of shape (n_paulis, n_wires)'
+                assert pauli_strings.min() >= 0 and pauli_strings.max() <= len(all_paulis), 'Pauli strings must be in [0, len(all_paulis)]'
+            else:
+                pauli_strings = torch.randint(0, len(all_paulis), (n_paulis, self.n_wires))
+
             # TODO: save both selected and measurements for model loading later
             measurements = []
-            for row in selected:
+            for row in pauli_strings:
                 pauli = all_paulis[row[0]]
                 for p in row[1:]:
                     pauli = torch.kron(pauli, all_paulis[p])
                 measurements.append(pauli)
             self.measurements = torch.stack(measurements).to(device)
             self.measurement_map = nn.Linear(emb_dim, n_paulis, dtype=torch.complex64)
+
 
         if bias == 'matrix':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
@@ -77,10 +84,9 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         elif bias == 'single':
             self.bias_param = nn.Parameter(torch.rand((1, 1)), )
 
-        KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, 
-                             bias=bias, batch_norm=batch_norm, n_paulis=n_paulis,
-                             strategy=strategy, pos_enc=pos_enc, n_wires=n_wires,
-                             max_len=max_len, **kwargs)
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, bias=bias, batch_norm=batch_norm, n_paulis=n_paulis,
+                                pauli_strings=pauli_strings, strategy=strategy, pos_enc=pos_enc, n_wires=n_wires,
+                                max_len=max_len, **kwargs)
         self.update()
 
     def update(self):
@@ -266,14 +272,19 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         else:
             raise ValueError(f'Unknown positional encoding {self.pos_enc}')
 
+        if self.strategy == 'simplified':
+            measurements_params = self.measurements.numel()
+        else:
+            measurements_params = 0
+
         if self.batch_norm:
             batch_norm_params = sum(p.numel() for p in self.batch_norm.parameters() if p.requires_grad)
         else:
             batch_norm_params = 0
 
         circ_params = sum(p.numel() for p in self.circuit.parameters() if p.requires_grad)
-        all_params = circ_params + bias_params + pos_enc_params + batch_norm_params
-        n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params,
+        all_params = circ_params + bias_params + pos_enc_params + measurements_params + batch_norm_params
+        n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params, 'n_measurements_params': measurements_params,
                     'n_batch_norm_params': batch_norm_params, 'n_pos_enc_params': pos_enc_params, 'n_all_params': all_params,}
         return n_params
 
