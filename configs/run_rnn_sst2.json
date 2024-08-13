@@ -6,7 +6,7 @@
         "value": 0.0001
     },
     "batch_size": {
-        "value": 256
+        "value": 64
     },
     "epochs": {
         "value": 30

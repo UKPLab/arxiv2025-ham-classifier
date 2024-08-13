@@ -21,7 +21,7 @@
         "value": "zeros"
     },
     "bias": {
-        "value": "matrix"
+        "value": "vector"
     },
     "batch_norm": {
         "value": true

@@ -1,21 +1,15 @@
 {
     "circ_in": {
-        "values": [
-            "zeros"
-        ]
+        "value": "zeros"
     },
     "bias": {
-        "values": [
-            "matrix"
-        ]
+        "value": "matrix"
     },
     "batch_norm": {
         "value": true
     },
     "pos_enc": {
-        "values": [
-            "none"
-        ]
+        "values": "none"
     },
     "gates": {
         "values": [
