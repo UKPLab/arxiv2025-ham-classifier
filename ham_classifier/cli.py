@@ -23,6 +23,12 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir =
     sweep_config['metric'] = metric
 
     global_params = read_config('configs/sweep_global.json')
+    if dataset == 'sst2' or dataset == 'imdb':
+        global_params.update({'emb_dim': {'value': 300}})
+    elif dataset == 'mnist2':
+        global_params.update({'emb_dim': {'value': 784}})
+
+
     if arch == 'ham':
         ham_params = read_config('configs/sweep_ham.json')
         global_params.update(ham_params)

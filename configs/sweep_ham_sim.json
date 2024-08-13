@@ -8,9 +8,7 @@
         ]
     },
     "bias": {
-        "values": [
-            "vector"
-        ]
+        "value": "vector"  
     },
     "batch_norm": {
         "value": true
