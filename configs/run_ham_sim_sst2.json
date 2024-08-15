@@ -9,7 +9,7 @@
         "value": 256
     },
     "epochs": {
-        "value": 1
+        "value": 30
     },
     "emb_dim": {
         "value": 300
@@ -42,15 +42,15 @@
         ]
     },
     "n_reps": {
-        "value": 16
+        "value": 32
     },
     "strategy": {
         "value": "simplified"
     },
     "n_paulis": {
-        "value": 100
+        "value": 500
     },
     "n_wires": {
-        "value": 8
+        "value": 9
     }
 }

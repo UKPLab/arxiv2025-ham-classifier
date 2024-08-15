@@ -6,7 +6,7 @@
         "value": 0.001
     },
     "batch_size": {
-        "value": 128
+        "value": 64
     },
     "epochs": {
         "value": 30
@@ -31,14 +31,15 @@
     },
     "gates": {
         "value": [
-            "ry",
-            "crx_ring",
-            "ry",
-            "crx_ring"
+            "rx",
+            "rz",
+            "crx_all_to_all",
+            "rx",
+            "rz"
         ]
     },
     "n_reps": {
-        "value": 16
+        "value": 8
     },
     "strategy": {
         "value": "full"

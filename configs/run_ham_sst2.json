@@ -6,7 +6,7 @@
         "value": 0.001
     },
     "batch_size": {
-        "value": 64
+        "value": 128
     },
     "epochs": {
         "value": 30
@@ -21,7 +21,7 @@
         "value": "zeros"
     },
     "bias": {
-        "value": "vector"
+        "value": "matrix"
     },
     "batch_norm": {
         "value": true
@@ -32,7 +32,9 @@
     "gates": {
         "value": [
             "rx",
-            "ry",
+            "rz",
+            "crx_all_to_all",
+            "rx",
             "rz"
         ]
     },

@@ -6,7 +6,7 @@
         "value": 0.001
     },
     "batch_size": {
-        "value": 128
+        "value": 64
     },
     "epochs": {
         "value": 30
@@ -21,7 +21,7 @@
         "value": "zeros"
     },
     "bias": {
-        "value": "matrix"
+        "value": "vector"
     },
     "batch_norm": {
         "value": true
@@ -39,7 +39,7 @@
         ]
     },
     "n_reps": {
-        "value": 16
+        "value": 8
     },
     "strategy": {
         "value": "full"
