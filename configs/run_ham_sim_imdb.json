@@ -42,7 +42,7 @@
         "value": 16
     },
     "strategy": {
-        "value": "full"
+        "value": "simplified"
     },
     "n_paulis": {
         "value": 10
