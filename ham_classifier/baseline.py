@@ -159,7 +159,7 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         Returns:
         (batch_size), (batch_size, emb_dim)
         '''
-        seq_lengths = seq_lengths
+        seq_lengths[seq_lengths <= 0] = 1
         x = x.type(torch.complex64)
         
         # Add vector bias
