@@ -238,6 +238,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         '''
         x = x.type(torch.complex64).to(device)
         seq_lengths = seq_lengths.to(device)
+        seq_lengths[seq_lengths == 0] = 1
 
         # If the sentence is too long, truncate it
         if x.shape[1] > self.max_len:

@@ -74,7 +74,6 @@ class Embedder(nn.Module, KWArgsMixin):
         indices = [torch.LongTensor(sentence).to(device=self.embedding.weight.device) for sentence in indices]
         seq_lengths = [len(sentence) for sentence in indices]
         seq_lengths = torch.tensor(seq_lengths)
-        seq_lengths[seq_lengths == 0] = 1
         if self.padding == 'zeros':
             torch_embedding = [self.embedding(idx) for idx in indices]
             torch_embedding = nn.utils.rnn.pad_sequence(torch_embedding, batch_first=True)
@@ -151,7 +150,6 @@ class NLTKEmbedder(Embedder):
         indices = [torch.LongTensor(sentence).to(device=self.embedding.weight.device) for sentence in indices]
         seq_lengths = [len(sentence) for sentence in indices]
         seq_lengths = torch.tensor(seq_lengths)
-        seq_lengths[seq_lengths == 0] = 1
         if self.padding == 'zeros':
             torch_embedding = [self.embedding(idx) for idx in indices]
             torch_embedding = nn.utils.rnn.pad_sequence(torch_embedding, batch_first=True)

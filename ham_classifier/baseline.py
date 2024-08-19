@@ -159,7 +159,6 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         Returns:
         (batch_size), (batch_size, emb_dim)
         '''
-        seq_lengths[seq_lengths <= 0] = 1
         x = x.type(torch.complex64)
         
         # Add vector bias
@@ -177,7 +176,14 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
         x = torch.nn.functional.pad(x, (0, 2**self.n_wires - self.emb_size))
         x = x.mean(dim=1) # (batch_size, emb_dim)
-        x = x / torch.norm(x, dim=1).view(-1, 1)
+
+        if torch.any(seq_lengths <= 0):
+            fill_in = torch.zeros_like(x[seq_lengths <= 0])
+            fill_in[:,0] = 1
+            x[seq_lengths <= 0] = fill_in
+            seq_lengths[seq_lengths <= 0] = 1
+        norms = torch.norm(x, dim=1).view(-1, 1)
+        x = x / norms
 
         # Apply self.circuit to sentence
         circ_out = self.circuit(x)
