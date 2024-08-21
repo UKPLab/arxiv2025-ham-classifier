@@ -1,0 +1,26 @@
+{
+    "optimizer": {
+        "value": "adam"
+    },
+    "learning_rate": {
+        "value": 0.001
+    },
+    "batch_size": {
+        "value": 128
+    },
+    "epochs": {
+        "value": 30
+    },
+    "emb_dim": {
+        "value": 784
+    },
+    "vocab_size": {
+        "value": null
+    },
+    "n_layers": {
+        "value": 3
+    },
+    "hidden_dim": {
+        "value": 100
+    }
+}
