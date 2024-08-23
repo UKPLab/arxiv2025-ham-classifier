@@ -398,8 +398,8 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5):
             train_loader = all_datasets.train_loader
             dev_loader = all_datasets.dev_loader
             test_loader = all_datasets.test_loader
-            do_dev_eval = not torch.any(dev_loader.dataset[0][1] <= 0)
-            compute_test_metrics = not torch.any(test_loader.dataset[0][1] <= 0)
+            do_dev_eval = not dev_loader.dataset[0][1] < 0
+            compute_test_metrics = not test_loader.dataset[0][1] < 0
 
             # Define loss function and optimizer
             criterion = all_datasets.criterion
