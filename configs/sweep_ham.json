@@ -9,7 +9,7 @@
         "value": true
     },
     "pos_enc": {
-        "values": "none"
+        "value": "none"
     },
     "gates": {
         "values": [
