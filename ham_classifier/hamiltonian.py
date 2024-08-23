@@ -12,7 +12,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
     def __init__(self, emb_dim, circ_in, bias, batch_norm, n_paulis=None,
                  pauli_strings=None, strategy='full', pos_enc=None, n_wires=None,
-                 max_len=1024, *args, **kwargs) -> None:
+                 max_len=1024, n_classes=2, *args, **kwargs) -> None:
         '''
         emb_dim: size of the embedding
         hamiltonian: 'pure' or 'mixed'
@@ -27,14 +27,20 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         '''
         super().__init__()
 
-        self.emb_size = emb_dim
+        self.emb_dim = emb_dim
         self.circ_in = circ_in
         self.bias = bias
         self.strategy = strategy
         self.max_len = max_len
         self.pos_enc = pos_enc
+        self.n_classes = n_classes
+
+        if n_classes != 2 and strategy != 'simplified':
+            raise ValueError('Only binary classification is supported for full strategy')
+
         if batch_norm:
-            self.batch_norm = nn.BatchNorm1d(1)
+            batch_norm_dim = 1 if n_classes == 2 else self.n_classes
+            self.batch_norm = nn.BatchNorm1d(batch_norm_dim)
         else:
             self.batch_norm = None
         
@@ -72,8 +78,10 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                     pauli = torch.kron(pauli, all_paulis[p])
                 measurements.append(pauli)
             self.measurements = torch.stack(measurements).to(device)
-            self.measurement_map = nn.Linear(emb_dim, n_paulis, dtype=torch.complex64)
-
+            if self.n_classes == 2:
+                self.measurement_map = nn.Linear(emb_dim, n_paulis)
+            else:
+                self.measurement_map = nn.ModuleList([nn.Linear(emb_dim, n_paulis) for _ in range(n_classes)])
 
         if bias == 'matrix':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
@@ -139,7 +147,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
         # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
         x = torch.nn.functional.pad(
-            x, (0, 2**self.n_wires - self.emb_size, 0, 2**self.n_wires - self.emb_size))
+            x, (0, 2**self.n_wires - self.emb_dim, 0, 2**self.n_wires - self.emb_dim))
 
         # Add bias
         if self.bias == 'matrix': # Full matrix
@@ -159,7 +167,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         return x
     
     def _hamiltonian_sim(self, x, seq_lengths):
-        x = x.type(torch.complex64).to(device)
+        x = x.to(device)
         seq_lengths = seq_lengths.to(device)
         
         # Add vector bias
@@ -168,35 +176,48 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             batch_bias = nn.utils.rnn.pad_sequence(batch_bias, batch_first=True)
             x += batch_bias
         
-        x = self.measurement_map(x)
+        if self.n_classes == 2:
+            x = self.measurement_map(x).type(torch.complex64)
 
-        x = torch.einsum('bsp, pij -> bij', x, self.measurements) / seq_lengths.view(-1, 1, 1)
+            x = torch.einsum('bsp, pij -> bij', x, self.measurements) / seq_lengths.view(-1, 1, 1)
 
-        # Add bias
-        if self.bias == 'matrix': # Full matrix
-            h0 = self.bias_param.triu() + self.bias_param.triu(1).H
-        elif self.bias == 'vector': # Done before
-            h0 = torch.zeros_like(x[0])
-        elif self.bias == 'diag': # Diagonal matrix
-            h0 = torch.diag(self.bias_param.view(-1))
-        elif self.bias == 'single': # Constant * Identity
-            h0 = self.bias_param * I(self.n_wires)
-        elif self.bias == 'none': # No bias
-            h0 = torch.zeros_like(x[0])
+            # Add bias
+            if self.bias == 'matrix': # Full matrix
+                h0 = self.bias_param.triu() + self.bias_param.triu(1).H
+            elif self.bias == 'vector': # Done before
+                h0 = torch.zeros_like(x[0])
+            elif self.bias == 'diag': # Diagonal matrix
+                h0 = torch.diag(self.bias_param.view(-1))
+            elif self.bias == 'single': # Constant * Identity
+                h0 = self.bias_param * I(self.n_wires)
+            elif self.bias == 'none': # No bias
+                h0 = torch.zeros_like(x[0])
+            else:
+                raise ValueError(f'Unknown bias {self.bias}')
+            x = x + h0
+            x = torch.nn.functional.normalize(x,dim=0)
         else:
-            raise ValueError(f'Unknown bias {self.bias}')
-        x = x + h0
-        x = torch.nn.functional.normalize(x,dim=0)
+            x = [m(x).type(torch.complex64) for m in self.measurement_map]
+            x = torch.stack(x, dim=1)
+            seq_lengths_inv = 1 / seq_lengths
+            x = torch.einsum('bcsp, b -> bcsp', x, seq_lengths_inv)
+            x = torch.einsum('bcsp, pij -> bcij', x, self.measurements)
 
         return x
 
     def state(self, x):
+        x = x.type(torch.complex64).to(device)
         if self.circ_in == 'sentence': # Mean of sentence
-            sent = x.mean(dim=1).reshape(-1, self.emb_size) # (batch_size, emb_dim)
-            sent = torch.nn.functional.pad(sent, (0, 2**self.n_wires - self.emb_size))
-            sent = sent / torch.norm(sent, dim=1).view(-1, 1)
+            sent = x.mean(dim=1).reshape(-1, self.emb_dim) # (batch_size, emb_dim)
+            sent = torch.nn.functional.pad(sent, (0, 2**self.n_wires - self.emb_dim))
+            norms = torch.norm(sent, dim=1).view(-1, 1)
+            if torch.any(norms <= 0):
+                fill_in = torch.zeros_like(sent[(norms <= 0).squeeze()])
+                fill_in[:,0] = 1
+                sent[(norms <= 0).squeeze()] = fill_in
+                norms = torch.norm(sent, dim=1).view(-1, 1)
+            sent = sent / norms
             sent = self.circuit(sent)
-            # sent = sent.repeat(x.shape[0], 1)
             return sent
         elif self.circ_in == 'zeros': # Zero state
             sent = torch.zeros(2**self.n_wires, dtype=torch.complex64).to(device)
@@ -215,17 +236,24 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
 
     def expval(self, ham, state):
-        # torch.einsum('bi,bij,jb -> b', state, ham, state.H).real
-        if len(state.shape) == 1:
-            state = state.view(1, -1)
-        if len(ham.shape) == 2:
-            ham = ham.view(1, *ham.shape)
+        if self.n_classes == 2:
+            if len(state.shape) == 1:
+                state = state.view(1, -1)
+            if len(ham.shape) == 2:
+                ham = ham.view(1, *ham.shape)
 
-        ev = torch.einsum('bi,bij,jb -> b', state, ham, state.H).real
+            ev = torch.einsum('bi,bij,jb -> b', state, ham, state.H).real
 
-        if self.batch_norm:
-            ev = self.batch_norm(ev.view(-1, 1)).view(-1)
-        ev = nn.functional.sigmoid(ev)
+            if self.batch_norm:
+                ev = self.batch_norm(ev.view(-1, 1)).view(-1)
+            ev = nn.functional.sigmoid(ev)
+        else:
+            if len(state.shape) == 1:
+                state = state.view(1, -1)
+            ev = torch.einsum('bi,bcij,jb -> bc', state, ham, state.H).real
+            if self.batch_norm:
+                ev = self.batch_norm(ev)
+            ev = nn.functional.softmax(ev, dim=1)
         return ev
 
     def forward(self, x, seq_lengths):
@@ -236,9 +264,11 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         Returns:
         (batch_size), (batch_size, emb_dim)
         '''
-        x = x.type(torch.complex64).to(device)
+        x = x.to(device)
         seq_lengths = seq_lengths.to(device)
         seq_lengths[seq_lengths == 0] = 1
+
+        assert x.shape[2] == self.emb_dim, f'Expected emb_dim {self.emb_dim}, got {x.shape[2]}'
 
         # If the sentence is too long, truncate it
         if x.shape[1] > self.max_len:
@@ -248,7 +278,6 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
         state = self.state(x) # Get state/sent emb
         ham = self.hamiltonian(x, seq_lengths) # Get hamiltonian
-
         x = self.expval(ham, state) # Combine to get expval
 
         return x, state
@@ -288,68 +317,3 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params, 'n_measurements_params': measurements_params,
                     'n_batch_norm_params': batch_norm_params, 'n_pos_enc_params': pos_enc_params, 'n_all_params': all_params,}
         return n_params
-
-
-if __name__ == '__main__':
-    from matplotlib import pyplot as plt
-    from tqdm import tqdm
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    # Training test
-    emb_dim = 300
-    x = torch.rand((256, 10, emb_dim)).type(torch.complex64).to(device)
-    lengths = torch.randint(1, 10, (256,)).to(device)
-    model = HamiltonianClassifier(emb_dim=emb_dim, gates=[
-                                  'rx', 'ry', 'rz'], circ_in='zeros', 
-                                    batch_norm=True,
-                                  pos_enc='learned', bias='single', n_reps=1)
-    model.to(device)
-    print(model(x, lengths))
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
-
-    for i in tqdm(range(2000)):
-        optimizer.zero_grad()
-        output, _ = model(x, lengths)
-        loss = torch.mean(output).real
-        print(loss)
-        loss.backward()
-        for param in model.parameters():
-            if param.grad is not None:
-                param.grad.data = param.grad.data.to(param.data.device)
-        # Print gradient norm
-        print(f'Gradient norm: {torch.norm(torch.stack([torch.norm(p.grad) for p in model.parameters()]))}')
-        optimizer.step()
-        model.update()
-
-    # Layer matrix test
-    # emb_dim = 5
-    # device = 'cpu'
-    # circ = Circuit(n_wires=emb_dim, gates=['crx_all_to_all'], n_reps=1)
-    # print(circ.matrix())
-
-    # import pennylane as qml
-
-    # dev = qml.device("default.qubit", wires=emb_dim)
-
-    # @qml.qnode(dev)
-    # def circuit():
-    #     # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="all_to_all")
-    #     # qml.broadcast(qml.RY, wires=range(emb_dim), pattern="single", parameters=circ.layers[1].theta)
-    #     # qml.broadcast(qml.CZ, wires=range(emb_dim), pattern="ring")
-    #     # qml.broadcast(qml.CNOT, wires=range(emb_dim), pattern="ring")
-    #     wdiff = []
-    #     for i in range(emb_dim):
-    #         wdiff += [0] + [-(i+1)]*emb_dim
-    #     wdiff += [0]
-    #     for i in range(emb_dim):
-    #         for j in range(emb_dim):
-    #             if i != j:
-    #                 w_index = (i * emb_dim + j) - \
-    #                     (i * emb_dim + j) // (emb_dim + 1) - 1
-    #                 qml.CRX(circ.layers[0].theta[w_index], wires=[i, j])
-
-    #     return qml.state()
-    # print(qml.matrix(circuit)())
-    # qml.draw_mpl(circuit)()
-    # plt.show()

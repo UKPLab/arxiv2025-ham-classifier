@@ -9,16 +9,24 @@ class BagOfWordsClassifier(nn.Module, KWArgsMixin):
     '''
     Bag of words baseline classifier
     '''
-    def __init__(self, emb_dim):
+    def __init__(self, emb_dim, n_classes):
         super().__init__()
-        self.classifier = nn.Sequential(
-            nn.Linear(emb_dim, 1),
-            nn.Sigmoid()
-        )
+        self.n_classes = n_classes
+        if n_classes == 2:
+            self.classifier = nn.Sequential(
+                nn.Linear(emb_dim, 1),
+                nn.Sigmoid()
+            )
+        else:
+            self.classifier = nn.Sequential(
+                nn.Linear(emb_dim, n_classes),
+                nn.Softmax(dim=1)
+            )
         KWArgsMixin.__init__(self, emb_dim=emb_dim)
     
     def forward(self, input, seq_lengths):
         seq_lengths = seq_lengths.to(device=input.device)
+        seq_lengths[seq_lengths == 0] = 1
         sent_emb = torch.sum(input, dim=1) / seq_lengths.view(-1, 1)
         pred = self.classifier(sent_emb).squeeze() # Squeeze to remove last dimension in binary classification tasks
 
@@ -34,18 +42,25 @@ class RecurrentClassifier(nn.Module, KWArgsMixin):
     '''
     Simple RNN/LSTM classifier
     '''
-    def __init__(self, emb_dim, hidden_dim, rnn_layers, architecture):
+    def __init__(self, emb_dim, hidden_dim, rnn_layers, architecture, n_classes):
         super().__init__()
+        self.n_classes = n_classes
         if architecture == 'rnn':
             self.combiner = nn.RNN(input_size=emb_dim, hidden_size=hidden_dim, num_layers=rnn_layers, batch_first=True)
         elif architecture == 'lstm':
             self.combiner = nn.LSTM(input_size=emb_dim, hidden_size=hidden_dim, num_layers=rnn_layers, batch_first=True)
         else:
             raise ValueError(f'Unknown architecture: {architecture}')
-        self.classifier = nn.Sequential(
-            nn.Linear(hidden_dim, 1),
-            nn.Sigmoid()
-        )
+        if n_classes == 2:
+            self.classifier = nn.Sequential(
+                nn.Linear(hidden_dim, 1),
+                nn.Sigmoid()
+            )
+        else:
+            self.classifier = nn.Sequential(
+                nn.Linear(hidden_dim, n_classes),
+                nn.Softmax(dim=1)
+            )
         KWArgsMixin.__init__(self, emb_dim=emb_dim, hidden_dim=hidden_dim, 
                              rnn_layers=rnn_layers, architecture=architecture)
     
@@ -95,7 +110,7 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     '''
 
     def __init__(self, emb_dim, clas_type,
-                 bias, pos_enc,
+                 bias, pos_enc, n_classes,
                  max_len=300, *args, **kwargs) -> None:
         '''
         emb_dim: size of the embedding
@@ -111,14 +126,24 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         self.max_len = max_len
         self.pos_enc = pos_enc
         self.n_wires = (emb_dim - 1).bit_length() # Next power of 2 of log(emb_size)
+        self.n_classes = n_classes
         self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
         if clas_type == 'tomography':
-            self.classifier = nn.Sequential(
-                nn.Linear(2**self.n_wires, 1),
-                nn.BatchNorm1d(1),
-                nn.Sigmoid()
-            )
+            if n_classes == 2:
+                self.classifier = nn.Sequential(
+                    nn.Linear(2**self.n_wires, 1),
+                    nn.BatchNorm1d(1),
+                    nn.Sigmoid()
+                )
+            else:
+                self.classifier = nn.Sequential(
+                    nn.Linear(2**self.n_wires, n_classes),
+                    nn.BatchNorm1d(n_classes),
+                    nn.Softmax(dim=1)
+                )
         elif clas_type == 'hamiltonian':
+            if n_classes != 2:
+                raise ValueError('Hamiltonian classifier only supports binary classification')
             self.ham_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), ).type(torch.complex64)
             self.head = nn.Sequential(
                 nn.BatchNorm1d(1),
@@ -235,9 +260,9 @@ class MLPClassifier(nn.Module, KWArgsMixin):
     '''
     Multi-layer perceptron classifier
     '''
-    def __init__(self, emb_dim, n_layers, hidden_dim):
+    def __init__(self, emb_dim, n_layers, hidden_dim, n_classes):
         super().__init__()
-
+        self.n_classes = n_classes
         if n_layers < 2:
             raise ValueError('n_layers must be at least 2')
         self.classifier = nn.Sequential()
@@ -246,13 +271,18 @@ class MLPClassifier(nn.Module, KWArgsMixin):
         for i in range(n_layers-2):
             self.classifier.add_module(f'hidden_{i}', nn.Linear(hidden_dim, hidden_dim))
             self.classifier.add_module(f'relu_{i}', nn.ReLU())
-        self.classifier.add_module('output', nn.Linear(hidden_dim, 1))
-        self.classifier.add_module('sigmoid_out', nn.Sigmoid())
+        if n_classes == 2:
+            self.classifier.add_module('output', nn.Linear(hidden_dim, 1))
+            self.classifier.add_module('sigmoid_out', nn.Sigmoid())
+        else:
+            self.classifier.add_module('output', nn.Linear(hidden_dim, n_classes))
+            self.classifier.add_module('softmax_out', nn.Softmax(dim=1))
 
         KWArgsMixin.__init__(self, emb_dim=emb_dim, n_layers=n_layers, hidden_dim=hidden_dim)
     
     def forward(self, input, seq_lengths):
         seq_lengths = seq_lengths.to(device=input.device)
+        seq_lengths[seq_lengths == 0] = 1
         sent_emb = torch.sum(input, dim=1) / seq_lengths.view(-1, 1)
         pred = self.classifier(sent_emb).squeeze() # Squeeze to remove last dimension in binary classification tasks
 
