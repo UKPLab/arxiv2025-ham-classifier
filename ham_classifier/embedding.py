@@ -162,14 +162,14 @@ class NLTKEmbedder(Embedder):
 class FlattenEmbedder(nn.Module):
     '''
     Simple embedder that converts images into vectors
-    E.g. (batch_size, height, width) -> (batch_size, 1, height * width)
+    E.g. (batch_size, n_channels, height, width) -> (batch_size, n_channels, height * width)
 
     '''
     def __init__(self, device):
         super().__init__()
         self.device = device
     def forward(self, x):
-        # Flatten image and return a vector of seq_lenghts = 1
-        flattened = x.view(x.size(0), 1, -1).to(device=self.device)
-        seq_lengths = torch.ones(x.size(0), dtype=torch.long) 
+        # Flatten image and return a vector of seq_lenghts = n_channels
+        flattened = x.view(x.size(0), x.size(1), -1).to(device=self.device)
+        seq_lengths = torch.ones(x.size(0), dtype=torch.long) * x.size(1) 
         return flattened, seq_lengths

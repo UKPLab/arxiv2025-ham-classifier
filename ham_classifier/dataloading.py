@@ -15,9 +15,9 @@ class CustomDataset(torch.utils.data.Dataset):
         sample = self.dataset[idx]
         data = sample[self.data_key]
         label = sample[self.label_key]
-        return {'idx': idx, 'data': data, 'label': label}
+        return data, label
     
-class CustomMNISTDataset(torch.utils.data.Dataset):
+class ClassFilteredDataset(torch.utils.data.Dataset):
     def __init__(self, dataset, indices):
         self.dataset = dataset
         self.indices = indices
@@ -28,7 +28,7 @@ class CustomMNISTDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         dataset_idx = self.indices[idx].item()
         data, label = self.dataset[dataset_idx]
-        return {'idx': dataset_idx, 'data': data, 'label': label}
+        return data, label
     
 
 def decomposition_collate_fn(batch):

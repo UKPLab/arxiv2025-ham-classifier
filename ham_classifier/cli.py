@@ -4,7 +4,7 @@ import random
 
 import wandb
 
-from .experiment import build_train, infer, infer_simplified
+from .experiment import build_train, infer
 from .utils import read_config
 
 
@@ -23,10 +23,12 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir =
     sweep_config['metric'] = metric
 
     global_params = read_config('configs/sweep_global.json')
-    if dataset == 'sst2' or dataset == 'imdb':
+    if dataset in ['sst2', 'imdb', 'agnews']:
         global_params.update({'emb_dim': {'value': 300}})
-    elif dataset == 'mnist2':
+    elif dataset in ['mnist2', 'fashion']:
         global_params.update({'emb_dim': {'value': 784}})
+    elif dataset in ['cifar10', 'cifar2']:
+        global_params.update({'emb_dim': {'value': 1024}})
 
 
     if arch == 'ham':
@@ -131,7 +133,11 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'
 
     sweep_config['parameters'] = global_params
 
-    sweep_id = wandb.sweep(sweep_config, project="ham-clas-v2")
+    if test:
+        project_name = "ham-clas-v3"
+    else:
+        project_name = "ham-clas-v2"
+    sweep_id = wandb.sweep(sweep_config, project=project_name)
 
     
     if not os.path.exists(model_dir):
@@ -152,12 +158,12 @@ def inference(arch, dataset, model_name, emb_path, test, model_dir = './models/'
     infer(arch, dataset, model_name, model_dir, emb_path, test)
 
 
-def inference_simplified(dataset, model_name, emb_path, model_dir = './models/'):
-    # If no file exist with model_name, crash
-    if not os.path.exists(model_dir + model_name):
-        raise ValueError(f'Model {model_name} not found in {model_dir}')
+# def inference_simplified(dataset, model_name, emb_path, model_dir = './models/'):
+#     # If no file exist with model_name, crash
+#     if not os.path.exists(model_dir + model_name):
+#         raise ValueError(f'Model {model_name} not found in {model_dir}')
     
-    infer_simplified(dataset, model_name, model_dir, emb_path)
+#     infer_simplified(dataset, model_name, model_dir, emb_path)
 
 
 def main():  # pragma: no cover
@@ -174,11 +180,6 @@ def main():  # pragma: no cover
     ```
     python -m ham_classifier --arch ham --dataset sst2 --mode inference --model_name <model_name>
     ```
-
-    To run inference with decomposed Hamiltonians:
-    ```
-    python -m ham_classifier --arch ham --dataset sst2 --mode inference_simplified --model_name <model_name>
-    ```
     
     To run a single model over many seeds:
     ```
@@ -186,6 +187,7 @@ def main():  # pragma: no cover
     ```
 
     """
+    # TODO: update help messages
     # Add arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, required=True, help='Mode to run. Options: sweep, run, inference')
@@ -211,7 +213,7 @@ def main():  # pragma: no cover
         wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience=patience)
     elif mode == 'inference':
         inference(arch, dataset, model_name, emb_path, test) 
-    elif mode == 'inference_simplified':
-        inference_simplified(dataset, model_name, emb_path)
+    # elif mode == 'inference_simplified':
+    #     inference_simplified(dataset, model_name, emb_path)
     elif mode == 'run':
         wandb_run(arch, dataset, emb_path, sweep_seed, test)

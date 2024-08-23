@@ -40,3 +40,12 @@ class DotDict:
 def read_config(config_path):
     with open(config_path, 'r') as f:
         return json.load(f)
+    
+
+class DatasetSetup:
+    def __init__(self, n_classes, criterion, train_loader, dev_loader, test_loader):
+        self.n_classes = n_classes
+        self.criterion = criterion
+        self.train_loader = train_loader
+        self.dev_loader = dev_loader
+        self.test_loader = test_loader
