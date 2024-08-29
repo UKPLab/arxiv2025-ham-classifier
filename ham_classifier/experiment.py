@@ -544,7 +544,10 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5):
                 
                 # Save outputs to tsv with pandas
                 # Columns: index prediction
-                predictions = (epoch_outputs > 0.5).type(torch.int)
+                # If folder doesn't exist, create it
+                if not os.path.exists(f'data/{dataset}/'):
+                    os.makedirs(f'data/{dataset}/')
+                predictions = (epoch_outputs > 0.5).type(torch.int).cpu().numpy()
                 pd.DataFrame({'index': range(len(test_loader.dataset)), 'prediction': predictions}) \
                 .to_csv(f'data/{dataset}/{arch}_{wandb.run.name}_test_predictions.tsv', sep='\t', index=False)
 
