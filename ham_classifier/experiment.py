@@ -10,7 +10,7 @@ from torcheval.metrics.functional import multiclass_f1_score
 
 from datasets import concatenate_datasets, load_dataset
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset, random_split
 from tqdm import tqdm
 
 import wandb
@@ -99,7 +99,7 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
             train_dataset = CustomDataset(datasets["train"], data_key='sentence', label_key='label')
             dev_dataset = CustomDataset(datasets["validation"], data_key='sentence', label_key='label')
             test_dataset = CustomDataset(datasets["test"], data_key='sentence', label_key='label')
-            train_dataset = torch.utils.data.ConcatDataset([train_dataset, dev_dataset])
+            train_dataset = ConcatDataset([train_dataset, dev_dataset])
             dev_dataset = test_dataset
     elif dataset == 'imdb':
         datasets = load_dataset("stanfordnlp/imdb")
@@ -167,7 +167,7 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
             # Split the training set into train and dev
             train_size = int(0.8 * len(train_dataset))
             dev_size = len(train_dataset) - train_size
-            train_dataset, dev_dataset = torch.utils.data.random_split(train_dataset, [train_size, dev_size])
+            train_dataset, dev_dataset = random_split(train_dataset, [train_size, dev_size])
         else:
             dev_dataset = test_dataset
     elif dataset == 'fashion':
@@ -191,7 +191,7 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
             # Split the training set into train and dev
             train_size = int(0.8 * len(train_dataset))
             dev_size = len(train_dataset) - train_size
-            train_dataset, dev_dataset = torch.utils.data.random_split(train_dataset, [train_size, dev_size])
+            train_dataset, dev_dataset = random_split(train_dataset, [train_size, dev_size])
         else:
             dev_dataset = test_dataset
     elif dataset == 'cifar10':
@@ -215,7 +215,7 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
             # Split the training set into train and dev
             train_size = int(0.8 * len(train_dataset))
             dev_size = len(train_dataset) - train_size
-            train_dataset, dev_dataset = torch.utils.data.random_split(train_dataset, [train_size, dev_size])
+            train_dataset, dev_dataset = random_split(train_dataset, [train_size, dev_size])
         else:
             dev_dataset = test_dataset
     elif dataset == 'cifar2':
@@ -250,7 +250,7 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
             # Split the training set into train and dev
             train_size = int(0.8 * len(train_dataset))
             dev_size = len(train_dataset) - train_size
-            train_dataset, dev_dataset = torch.utils.data.random_split(train_dataset, [train_size, dev_size])
+            train_dataset, dev_dataset = random_split(train_dataset, [train_size, dev_size])
         else:
             dev_dataset = test_dataset
 
