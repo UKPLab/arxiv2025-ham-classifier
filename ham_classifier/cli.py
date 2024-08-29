@@ -144,7 +144,7 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'
         os.makedirs(model_dir)
 
     # torch_baseline, torch_quantum, lambeq
-    train = build_train(arch=arch, dataset=dataset, model_dir=model_dir, emb_path=emb_path, test=test, patience=None)
+    train = build_train(arch=arch, dataset=dataset, model_dir=model_dir, emb_path=emb_path, test=test, patience=5)
 
     # Train the network
     wandb.agent(sweep_id, train)
