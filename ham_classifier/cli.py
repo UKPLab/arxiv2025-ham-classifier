@@ -8,7 +8,7 @@ from .experiment import build_train, infer
 from .utils import read_config
 
 
-def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir = './models/'):
+def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_predictions, model_dir = './models/'):
     wandb.login()
 
     sweep_config = {
@@ -70,13 +70,15 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, model_dir =
         os.makedirs(model_dir)
 
     # torch_baseline, torch_quantum, lambeq
-    train = build_train(arch=arch, dataset=dataset, model_dir=model_dir, emb_path=emb_path, test=test, patience=patience)
+    train = build_train(arch=arch, dataset=dataset, model_dir=model_dir, emb_path=emb_path, 
+                        test=test, patience=patience, save_test_predictions=save_test_predictions)
 
     # Train the network
     wandb.agent(sweep_id, train, count=50)
 
 
-def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'):
+def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
+              model_dir = './models/'):
     wandb.login()
 
     sweep_config = {
@@ -144,7 +146,8 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, model_dir = './models/'
         os.makedirs(model_dir)
 
     # torch_baseline, torch_quantum, lambeq
-    train = build_train(arch=arch, dataset=dataset, model_dir=model_dir, emb_path=emb_path, test=test, patience=5)
+    train = build_train(arch=arch, dataset=dataset, model_dir=model_dir, emb_path=emb_path, 
+                        test=test, patience=5, save_test_predictions=save_test_predictions)
 
     # Train the network
     wandb.agent(sweep_id, train)
@@ -196,6 +199,7 @@ def main():  # pragma: no cover
     parser.add_argument('--emb_path', type=str, default='./embeddings/GoogleNews-vectors-negative300.bin.gz', help='Path to word2vec embeddings')
     parser.add_argument('--sweep_seed', action='store_true', help='Enables multiple runs with different seeds.')
     parser.add_argument('--test', action='store_true', help='Use original sst2 splits.')
+    parser.add_argument('--save_test_predictions', action='store_true', help='Save test predictions.')
     parser.add_argument('--model_dir', type=str, default='./models/', help='Directory to save models')
     parser.add_argument('--model_name', type=str, help='Name of the model')
     parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
@@ -206,14 +210,15 @@ def main():  # pragma: no cover
     emb_path = args.emb_path
     sweep_seed = args.sweep_seed
     test = args.test
+    save_test_predictions = args.save_test_predictions
     model_name = args.model_name
     patience = args.patience
 
     if mode == 'sweep':
-        wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience=patience)
+        wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience=patience, save_test_predictions=save_test_predictions)
     elif mode == 'inference':
         inference(arch, dataset, model_name, emb_path, test) 
     # elif mode == 'inference_simplified':
     #     inference_simplified(dataset, model_name, emb_path)
     elif mode == 'run':
-        wandb_run(arch, dataset, emb_path, sweep_seed, test)
+        wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions=save_test_predictions)
