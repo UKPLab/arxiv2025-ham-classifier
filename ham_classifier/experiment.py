@@ -284,10 +284,12 @@ def build_model(arch, config):
         assert hasattr(config,'strategy'), 'Strategy must be provided for hamiltonian model'
         assert hasattr(config,'n_wires'), 'Number of wires must be provided for hamiltonian model'
         assert hasattr(config,'n_classes'), 'Number of classes must be provided for hamiltonian model'
+        if not hasattr(config,'pauli_strings'):
+            config.pauli_strings = None
 
         return HamiltonianClassifier(emb_dim=config.emb_dim, circ_in=config.circ_in, n_classes=config.n_classes,
                                      bias=config.bias, gates=config.gates, n_reps=config.n_reps,
-                                     pos_enc=config.pos_enc, batch_norm=config.batch_norm,
+                                     pos_enc=config.pos_enc, batch_norm=config.batch_norm, pauli_strings=config.pauli_strings,
                                      n_paulis=config.n_paulis, strategy=config.strategy, n_wires=config.n_wires)
     elif arch == 'rnn' or arch == 'lstm':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for recurrent model'
@@ -567,7 +569,7 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5, save_test_
     return train
 
 
-def infer(arch, dataset, model_name, model_dir, emb_path, test):
+def infer(arch, dataset, model_name, model_dir, emb_path, test, save_test_predictions=False):
     '''
     Inference function
     '''
@@ -598,20 +600,18 @@ def infer(arch, dataset, model_name, model_dir, emb_path, test):
     # Load dataset
     print('Loading dataset...')
     all_datasets = build_dataset(dataset, model_kwargs, test, batch_size=256)
-    if test:
-        data_loader = all_datasets.test_loader
-    else:
-        data_loader = all_datasets.dev_loader
     print('Done.')
 
     # Define loss function
     criterion = all_datasets.criterion
-
-    # Evaluate on test set
+    
     if test:
+        data_loader = all_datasets.test_loader
         print('Evaluating on test set...')
     else:
+        data_loader = all_datasets.dev_loader
         print('Evaluating on dev set...')
+
     cumu_outputs = []
     cumu_labels = []
     with torch.no_grad():
@@ -622,7 +622,7 @@ def infer(arch, dataset, model_name, model_dir, emb_path, test):
             inputs, seq_lengths = embedding(data)
             outputs, _ = model(inputs, seq_lengths)
             cumu_outputs.append(outputs)
-            if not test:
+            if not save_test_predictions:
                 # Compute metrics for the epoch
                 loss, accuracy, f1 = metrics(criterion, model.n_classes, outputs, labels)
                 cumu_labels.append(labels)
@@ -632,17 +632,21 @@ def infer(arch, dataset, model_name, model_dir, emb_path, test):
 
     print('Saving results...')
     epoch_outputs = torch.cat(cumu_outputs)
-    if not test:
+    # Save outputs to tsv with pandas
+    if save_test_predictions:
+        # Columns: index prediction
+        # If folder doesn't exist, create it
+        if not os.path.exists(f'data/{dataset}/'):
+            os.makedirs(f'data/{dataset}/')
+        predictions = (epoch_outputs > 0.5).type(torch.int).cpu().numpy()
+        pd.DataFrame({'index': range(len(data_loader.dataset)), 'prediction': predictions}) \
+        .to_csv(f'data/{dataset}/{arch}_{wandb.run.name}_test_predictions.tsv', sep='\t', index=False)
+    else:
         # Compute metrics for the epoch
         epoch_labels = torch.cat(cumu_labels)
-        dev_loss, dev_acc, dev_f1 = metrics(criterion, model.n_classes, epoch_outputs, epoch_labels)
-        print(f'Dev loss: {dev_loss}, Dev accuracy: {dev_acc}, Dev F1: {dev_f1}')
-    else:
-        # Save outputs to tsv with pandas
-        # Columns: index prediction
-        epoch_outputs = (cumu_outputs > 0.5).type(torch.int)
-        pd.DataFrame({'index': range(len(data_loader.dataset)), 'prediction': epoch_outputs}) \
-        .to_csv(f'data/sst2/{arch}_{model_name}_test_predictions.tsv', sep='\t', index=False)
+        loss, acc, f1 = metrics(criterion, model.n_classes, epoch_outputs, epoch_labels)
+        print(f'Loss: {loss}, Accuracy: {acc}, F1: {f1}')
+
     print('Done.')
 
     del model
