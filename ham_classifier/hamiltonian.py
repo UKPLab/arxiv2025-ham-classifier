@@ -67,10 +67,11 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                 assert n_paulis == len(pauli_strings), 'Number of Pauli strings must match n_paulis'
                 assert pauli_strings.shape == (n_paulis, self.n_wires), 'Pauli strings must be of shape (n_paulis, n_wires)'
                 assert pauli_strings.min() >= 0 and pauli_strings.max() <= len(all_paulis), 'Pauli strings must be in [0, len(all_paulis)]'
+                self.pauli_strings = pauli_strings
             else:
                 pauli_strings = torch.randint(0, len(all_paulis), (n_paulis, self.n_wires))
+                self.pauli_strings = pauli_strings
 
-            # TODO: save both selected and measurements for model loading later
             measurements = []
             for row in pauli_strings:
                 pauli = all_paulis[row[0]]
@@ -303,7 +304,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             raise ValueError(f'Unknown positional encoding {self.pos_enc}')
 
         if self.strategy == 'simplified':
-            measurements_params = self.measurements.numel()
+            measurements_params = self.pauli_strings.numel()
         else:
             measurements_params = 0
 
