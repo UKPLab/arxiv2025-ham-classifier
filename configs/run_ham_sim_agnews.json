@@ -3,10 +3,10 @@
         "value": "adam"
     },
     "learning_rate": {
-        "value": 0.0001
+        "value": 0.001
     },
     "batch_size": {
-        "value": 64
+        "value": 256
     },
     "epochs": {
         "value": 30
@@ -17,8 +17,14 @@
     "vocab_size": {
         "value": null
     },
+    "circ_in": {
+        "value": "zeros"
+    },
     "bias": {
         "value": "vector"
+    },
+    "batch_norm": {
+        "value": true
     },
     "pos_enc": {
         "value": "none"
@@ -32,9 +38,15 @@
         ]
     },
     "n_reps": {
-        "value": 32
+        "value": 16
     },
-    "clas_type": {
-        "value": "tomography"
+    "strategy": {
+        "value": "simplified"
+    },
+    "n_paulis": {
+        "value": 500
+    },
+    "n_wires": {
+        "value": 6
     }
 }

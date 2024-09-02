@@ -31,11 +31,10 @@
     },
     "gates": {
         "value": [
-            "rx",
-            "rz",
-            "crx_all_to_all",
-            "rx",
-            "rz"
+            "ry",
+            "crx_ring",
+            "ry",
+            "crx_ring"
         ]
     },
     "n_reps": {

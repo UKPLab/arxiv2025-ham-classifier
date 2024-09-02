@@ -3,7 +3,7 @@
         "value": "adam"
     },
     "learning_rate": {
-        "value": 0.01
+        "value": 0.001
     },
     "batch_size": {
         "value": 128
@@ -12,42 +12,28 @@
         "value": 30
     },
     "emb_dim": {
-        "value": 784
+        "value": 300
     },
     "vocab_size": {
         "value": null
     },
-    "circ_in": {
-        "value": "zeros"
-    },
     "bias": {
         "value": "vector"
-    },
-    "batch_norm": {
-        "value": true
     },
     "pos_enc": {
         "value": "none"
     },
     "gates": {
-        "value":    [
+        "value": [
             "rx",
-            "rz",
-            "crx_all_to_all",
-            "rx",
+            "ry",
             "rz"
         ]
     },
     "n_reps": {
         "value": 16
     },
-    "strategy": {
-        "value": "simplified"
-    },
-    "n_paulis": {
-        "value": 500
-    },
-    "n_wires": {
-        "value": 6
+    "clas_type": {
+        "value": "tomography"
     }
 }

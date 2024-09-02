@@ -12,45 +12,29 @@
         "value": 30
     },
     "emb_dim": {
-        "value": 300
+        "value": 784
     },
     "vocab_size": {
         "value": null
     },
-    "circ_in": {
-        "value": "zeros"
-    },
     "bias": {
         "value": "vector"
-    },
-    "batch_norm": {
-        "value": true
-    },
-    "pauli_strings": {
-        "value": null
     },
     "pos_enc": {
         "value": "none"
     },
     "gates": {
         "value": [
-            "rx",
-            "rz",
-            "crx_all_to_all",
-            "rx",
-            "rz"
+            "ry",
+            "crx_ring",
+            "ry",
+            "crx_ring"
         ]
     },
     "n_reps": {
-        "value": 16
+        "value": 32
     },
-    "strategy": {
-        "value": "simplified"
-    },
-    "n_paulis": {
-        "value": 1000
-    },
-    "n_wires": {
-        "value": 9
+    "clas_type": {
+        "value": "tomography"
     }
 }

@@ -3,7 +3,7 @@
         "value": "adam"
     },
     "learning_rate": {
-        "value": 0.01
+        "value": 0.001
     },
     "batch_size": {
         "value": 64
@@ -39,7 +39,7 @@
         ]
     },
     "n_reps": {
-        "value": 32
+        "value": 8
     },
     "strategy": {
         "value": "full"

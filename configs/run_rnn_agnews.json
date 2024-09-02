@@ -12,15 +12,15 @@
         "value": 30
     },
     "emb_dim": {
-        "value": 784
+        "value": 300
     },
     "vocab_size": {
         "value": null
     },
-    "n_layers": {
-        "value": 3
-    },
     "hidden_dim": {
         "value": 100
+    },
+    "rnn_layers": {
+        "value": 1
     }
 }

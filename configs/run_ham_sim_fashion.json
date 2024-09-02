@@ -32,9 +32,7 @@
     "gates": {
         "value":    [
             "rx",
-            "rz",
-            "crx_all_to_all",
-            "rx",
+            "ry",
             "rz"
         ]
     },
@@ -45,7 +43,7 @@
         "value": "simplified"
     },
     "n_paulis": {
-        "value": 500
+        "value": 1000
     },
     "n_wires": {
         "value": 6

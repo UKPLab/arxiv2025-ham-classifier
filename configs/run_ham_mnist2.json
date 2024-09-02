@@ -6,7 +6,7 @@
         "value": 0.01
     },
     "batch_size": {
-        "value": 128
+        "value": 256
     },
     "epochs": {
         "value": 30
@@ -21,7 +21,7 @@
         "value": "zeros"
     },
     "bias": {
-        "value": "vector"
+        "value": "matrix"
     },
     "batch_norm": {
         "value": true
@@ -30,24 +30,22 @@
         "value": "none"
     },
     "gates": {
-        "value":    [
+        "value": [
             "rx",
-            "rz",
-            "crx_all_to_all",
-            "rx",
+            "ry",
             "rz"
         ]
     },
     "n_reps": {
-        "value": 16
+        "value": 32
     },
     "strategy": {
-        "value": "simplified"
+        "value": "full"
     },
     "n_paulis": {
-        "value": 500
+        "value": null
     },
     "n_wires": {
-        "value": 6
+        "value": null
     }
 }
