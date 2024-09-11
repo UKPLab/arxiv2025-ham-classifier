@@ -26,7 +26,10 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
     if dataset in ['sst2', 'imdb', 'agnews']:
         global_params.update({'emb_dim': {'value': 300}})
     elif dataset in ['mnist2', 'fashion']:
-        global_params.update({'emb_dim': {'value': 784}})
+        if arch == 'cnn':
+            global_params.update({'emb_dim': {'value': 28}})
+        else:
+            global_params.update({'emb_dim': {'value': 784}})
     elif dataset in ['cifar10', 'cifar2']:
         global_params.update({'emb_dim': {'value': 1024}})
 
@@ -45,6 +48,9 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
     elif arch == 'mlp':
         mlp_params = read_config('configs/sweep_mlp.json')
         global_params.update(mlp_params)
+    elif arch == 'cnn':
+        cnn_params = read_config('configs/sweep_cnn.json')
+        global_params.update(cnn_params)
     elif arch == 'ham_peffbias':
         ham_params = read_config('configs/sweep_ham_peffbias.json')
         global_params.update(ham_params)
@@ -110,6 +116,8 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
         global_params = read_config(f'configs/run_bow_{dataset}.json')
     elif arch == 'mlp':
         global_params = read_config(f'configs/run_mlp_{dataset}.json')
+    elif arch == 'cnn':
+        global_params = read_config(f'configs/run_cnn_{dataset}.json')
     elif arch == 'ablation_peffbias':
         global_params = read_config(f'configs/run_ablation_peffbias_{dataset}.json')
         arch = 'ham'

@@ -1,0 +1,28 @@
+{
+    "in_channels": {
+        "value": 1
+    },
+    "n_layers": {
+        "values": [
+            3,
+            4,
+            5
+        ]
+    },
+    "out_channels": {
+        "values": [
+            8,
+            16,
+            32,
+            64,
+            128
+        ]
+    },
+    "kernel_size": {
+        "values": [
+            3,
+            5,
+            7
+        ]
+    }
+}

@@ -15,12 +15,12 @@ from tqdm import tqdm
 
 import wandb
 
-from .baseline import (BagOfWordsClassifier, MLPClassifier,
+from .baseline import (BagOfWordsClassifier, MLPClassifier, CNNClassifier,
                        QuantumCircuitClassifier, RecurrentClassifier)
 from .circuit import decompose_hamiltonians, pauli2matrix
 from .dataloading import (CustomDataset, DecompositionDataset, ClassFilteredDataset,
                           decomposition_collate_fn)
-from .embedding import NLTKEmbedder, FlattenEmbedder
+from .embedding import NLTKEmbedder, FlattenEmbedder, PassEmbedder
 from .hamiltonian import HamiltonianClassifier
 from .utils import DotDict, DatasetSetup
 import torch
@@ -321,6 +321,16 @@ def build_model(arch, config):
         assert hasattr(config,'n_layers'), 'Number of layers must be provided for mlp model'
         assert hasattr(config,'n_classes'), 'Number of classes must be provided for mlp model'
         return MLPClassifier(emb_dim=config.emb_dim, hidden_dim=config.hidden_dim, n_layers=config.n_layers, n_classes=config.n_classes)
+    elif arch == 'cnn':
+        assert hasattr(config,'in_channels'), 'Number of input channels must be provided for cnn model'
+        assert hasattr(config,'n_layers'), 'Number of layers must be provided for cnn model'
+        assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for cnn model'
+        assert hasattr(config,'out_channels'), 'Output channels must be provided for cnn model'
+        assert hasattr(config,'n_classes'), 'Number of classes must be provided for cnn model'
+        assert hasattr(config,'kernel_size'), 'Kernel size must be provided for cnn model'
+        
+        return CNNClassifier(in_channels=config.in_channels, n_layers=config.n_layers, emb_dim=config.emb_dim, out_channels=config.out_channels,
+                            n_classes=config.n_classes, kernel_size=config.kernel_size)
     else:
         raise ValueError('Invalid model architecture.')
 
@@ -348,8 +358,11 @@ def build_parameters(arch, dataset, emb_path, device, test, config):
     if dataset in ['sst2', 'imdb', 'agnews']:
         embedding = NLTKEmbedder(weights_path = emb_path,  vocab_size=config.vocab_size)
         assert embedding.emb_dim == config.emb_dim, 'Embedding dimension mismatch'
-    elif dataset in ['mnist2', 'cifar10', 'cifar2','fashion']: 
-        embedding = FlattenEmbedder(device=device)
+    elif dataset in ['mnist2', 'cifar10', 'cifar2','fashion']:
+        if arch == 'cnn': 
+            embedding = PassEmbedder(device=device)
+        else:
+            embedding = FlattenEmbedder(device=device)
 
 
     # Load datasets

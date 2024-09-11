@@ -173,3 +173,18 @@ class FlattenEmbedder(nn.Module):
         flattened = x.view(x.size(0), x.size(1), -1).to(device=self.device)
         seq_lengths = torch.ones(x.size(0), dtype=torch.long) * x.size(1) 
         return flattened, seq_lengths
+    
+
+class PassEmbedder(nn.Module):
+    '''
+    Simple embedder that returns images as they are
+    E.g. (batch_size, n_channels, height, width) -> (batch_size, n_channels, height, width)
+
+    '''
+    def __init__(self, device):
+        super().__init__()
+        self.device = device
+    def forward(self, x):
+        # Return image as it is
+        seq_lengths = torch.ones(x.size(0), dtype=torch.long) * x.size(1) 
+        return x.to(device=self.device), seq_lengths

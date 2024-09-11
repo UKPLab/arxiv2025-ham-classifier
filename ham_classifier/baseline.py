@@ -294,3 +294,81 @@ class MLPClassifier(nn.Module, KWArgsMixin):
         return n_params
     
 
+class CNNClassifier(nn.Module, KWArgsMixin):
+    '''
+    Convolutional Neural Network classifier
+    '''
+    def __init__(self, in_channels, n_layers, emb_dim, out_channels, n_classes, kernel_size=3):
+        super().__init__()
+        self.n_classes = n_classes
+        if n_layers < 2:
+            raise ValueError('n_layers must be at least 2')
+        
+        self.features = nn.Sequential()
+        
+        # Add the first convolutional layer
+        self.features.add_module('conv1', nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=1))
+        self.features.add_module('relu1', nn.ReLU())
+        # self.features.add_module('pool1', nn.MaxPool2d(pool_size))
+        
+        # Add hidden convolutional layers
+        for i in range(n_layers - 2):
+            self.features.add_module(f'conv_hidden_{i}', nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, padding=1))
+            self.features.add_module(f'relu_hidden_{i}', nn.ReLU())
+            # self.features.add_module(f'pool_hidden_{i}', nn.MaxPool2d(pool_size))
+        
+        # Flatten the output from the convolutional layers for fully connected layers
+        self.flatten = nn.Flatten()
+        flatten_dim = self._get_flatten_dim(in_channels, emb_dim)
+
+        # Add final fully connected layers
+        self.classifier = nn.Sequential()
+        if n_classes == 2:
+            self.classifier.add_module('fc', nn.Linear(flatten_dim, 1))
+            self.classifier.add_module('sigmoid_out', nn.Sigmoid())
+        else:
+            self.classifier.add_module('fc', nn.Linear(flatten_dim, n_classes))
+            self.classifier.add_module('softmax_out', nn.Softmax(dim=1))
+        KWArgsMixin.__init__(self, in_channels=in_channels, n_layers=n_layers, out_channels=out_channels, 
+                                n_classes=n_classes, kernel_size=kernel_size)
+
+    def _get_flatten_dim(self, in_channels, emb_dim):
+        # Create a dummy input tensor with batch size = 1 and in_channels, and a standard size (e.g., 32x32)
+        dummy_input = torch.randn(1, in_channels, emb_dim, emb_dim)
+        
+        # Pass through the convolutional layers to get the output shape
+        conv_out = self.features(dummy_input)
+        
+        # Flatten the output and get the number of features
+        flatten_dim = conv_out.view(1, -1).size(1)
+        
+        return flatten_dim
+
+    def forward(self, input, seq_lengths):
+        # Pass through the convolutional layers
+        conv_out = self.features(input)
+        # Flatten the feature map
+        flattened = self.flatten(conv_out)
+        # Pass through the fully connected classifier
+        pred = self.classifier(flattened).squeeze()
+
+        return pred, flattened
+
+    def get_n_params(self):
+        # Count the number of parameters in the convolutional layers
+        conv_params = sum(p.numel() for p in self.features.parameters())
+        
+        # Count the number of parameters in the fully connected classifier layers
+        classifier_params = sum(p.numel() for p in self.classifier.parameters())
+        
+        # Total number of parameters
+        n_all_params = conv_params + classifier_params
+        
+        # Return as a dictionary with breakdown
+        n_params = {
+            'n_conv_params': conv_params,
+            'n_classifier_params': classifier_params,
+            'n_all_params': n_all_params
+        }
+        
+        return n_params
