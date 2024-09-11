@@ -503,7 +503,7 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5, save_test_
                             "dev eval epoch time": dev_eval_time,
                             "total epoch time": total_time})
                     
-                    if patience is not None:
+                    if patience is not None and not test:
                         # Check if the current validation loss is better than the previous best loss
                         if dev_loss < best_dev_loss * 0.99:
                             best_dev_loss = dev_loss
@@ -517,6 +517,11 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5, save_test_
                             break  # Exit the training loop
                 
                 else:
+                    wandb.log({"epoch": epoch,
+                            "loss": train_loss,
+                            "train accuracy": train_acc,
+                            "train F1": train_f1,
+                            "train epoch time": train_time})
                     print('Skipping dev evaluation...')
             if test:
                 # Evaluate on test set
