@@ -1,0 +1,32 @@
+{
+    "optimizer": {
+        "value": "adam"
+    },
+    "learning_rate": {
+        "value": 0.001
+    },
+    "batch_size": {
+        "value": 64
+    },
+    "epochs": {
+        "value": 30
+    },
+    "emb_dim": {
+        "value": 28
+    },
+    "vocab_size": {
+        "value": null
+    },
+    "in_channels": {
+        "value": 1
+    },
+    "n_layers": {
+        "value": 4
+    },
+    "out_channels": {
+        "value": 16
+    },
+    "kernel_size": {
+        "value": 3
+    }
+}
