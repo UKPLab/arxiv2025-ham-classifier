@@ -133,6 +133,12 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
     elif arch == 'ablation_hamhad':
         global_params = read_config(f'configs/run_ablation_hamhad_{dataset}.json')
         arch = 'ham'
+    elif arch == 'exp_ham_sim_qubit':
+        global_params = read_config(f'configs/run_exp_ham_sim_qubit_{dataset}.json')
+        arch = 'ham'
+    elif arch == 'exp_ham_sim_pauli':
+        global_params = read_config(f'configs/run_exp_ham_sim_pauli_{dataset}.json')
+        arch = 'ham'
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 
