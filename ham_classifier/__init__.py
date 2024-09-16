@@ -1,8 +1,8 @@
 from .baseline import (BagOfWordsClassifier, MLPClassifier, CNNClassifier,
-                       QuantumCircuitClassifier, RecurrentClassifier)
+                       QuantumCircuitClassifier, RecurrentClassifier, QLSTMClassifier)
 from .circuit import (CNOT, CZ, RX, RY, RZ, Circuit, CRXAllToAll, CRXRing,
                       CRZAllToAll, CRZRing, CZRing, H, I, ILayer, PauliCircuit,
-                      RXLayer, RYLayer, RZLayer, Z, angle_embedding,
+                      RXLayer, RYLayer, RZLayer, Z, angle_embedding, QLSTMCell,
                       pauli2matrix, pauli_Z_observable)
 from .dataloading import (CustomDataset, DecompositionDataset, ClassFilteredDataset,
                           decomposition_collate_fn)
@@ -23,7 +23,9 @@ __all__ = [
     "CNNClassifier",
     "BagOfWordsClassifier",
     "QuantumCircuitClassifier",
+    "QLSTMClassifier",
     "HamiltonianClassifier",
+    "QLSTMCell",
     "I",
     "RX",
     "RY",

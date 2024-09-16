@@ -16,7 +16,7 @@ from tqdm import tqdm
 import wandb
 
 from .baseline import (BagOfWordsClassifier, MLPClassifier, CNNClassifier,
-                       QuantumCircuitClassifier, RecurrentClassifier)
+                       QuantumCircuitClassifier, QLSTMClassifier, RecurrentClassifier)
 from .circuit import decompose_hamiltonians, pauli2matrix
 from .dataloading import (CustomDataset, DecompositionDataset, ClassFilteredDataset,
                           decomposition_collate_fn)
@@ -310,6 +310,17 @@ def build_model(arch, config):
 
         return QuantumCircuitClassifier(emb_dim=config.emb_dim, clas_type=config.clas_type, gates=config.gates,
                                         pos_enc=config.pos_enc, bias=config.bias, n_reps=config.n_reps, n_classes=config.n_classes)
+    elif arch == 'qlstm':
+        assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for quantum lstm model'
+        assert hasattr(config,'hidden_dim'), 'Hidden dimension must be provided for quantum lstm model'
+        assert hasattr(config,'n_wires'), 'Number of wires must be provided for quantum lstm model'
+        assert hasattr(config,'n_layers'), 'Number of layers must be provided for quantum lstm model'
+        assert hasattr(config,'n_classes'), 'Number of classes must be provided for quantum lstm model'
+        assert hasattr(config,'gates'), 'Gates must be provided for quantum lstm model'
+
+        return QLSTMClassifier(emb_dim=config.emb_dim, hidden_dim=config.hidden_dim, n_wires=config.n_wires,
+                               n_layers=config.n_layers, gates=config.gates, n_classes=config.n_classes)
+    
     elif arch == 'bow':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for bag of words model'
         assert hasattr(config,'n_classes'), 'Number of classes must be provided for bag of words model'

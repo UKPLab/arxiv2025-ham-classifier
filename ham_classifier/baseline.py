@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from .circuit import Circuit, device
+from .circuit import Circuit, device, QLSTMCell
 from .utils import KWArgsMixin, UpdateMixin
 
 
@@ -255,6 +255,68 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                     'n_clas_params': clas_params}
         return n_params
     
+
+#self, emb_dim, hidden_dim, n_wires, n_layers, gates, n_classes
+class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
+    def __init__(self, emb_dim, hidden_dim, n_wires, n_layers, gates, n_classes):
+        super(QLSTMClassifier, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.n_classes = n_classes
+        
+        # Single LSTM cell
+        self.qlstm_cell = QLSTMCell(emb_dim, hidden_dim, n_wires, n_layers, gates)
+        
+        if n_classes == 2:
+            self.fc = nn.Linear(hidden_dim, 1)
+            self.sigmoid = nn.Sigmoid()
+        else:
+            self.fc = nn.Linear(hidden_dim, n_classes)
+            self.softmax = nn.Softmax(dim=1)
+        
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, hidden_dim=hidden_dim, n_wires=n_wires, n_layers=n_layers, gates=gates)
+    
+    def forward(self, x, seq_lengths):
+        batch_size, seq_len, _ = x.size()
+        
+        # Initialize hidden state and cell state to zeros
+        hidden = (torch.zeros(batch_size, self.hidden_dim).to(x.device),
+                    torch.zeros(batch_size, self.hidden_dim).to(x.device))
+        
+        outputs = []
+        for t in range(seq_len):
+            input_t = x[:, t, :]  # Get input at time step t
+            h, C = self.qlstm_cell(input_t, hidden)  # Get the new hidden state and cell state
+            hidden = (h, C)  # Update hidden and cell states
+            outputs.append(h.unsqueeze(1))  # Collect the output for each time step
+        
+        # Concatenate outputs for all time steps
+        outputs = torch.cat(outputs, dim=1)
+        
+        # Use the output of the last time step for classification
+        final_output = outputs[:, -1, :]  # Take the output of the last time step
+        
+        # Pass through the linear layer
+        logits = self.fc(final_output)
+        
+        # Apply sigmoid to get a normalized value
+        normalized_output = self.sigmoid(logits)
+        
+        return normalized_output.squeeze(), hidden
+    
+    def update(self):
+        for gate in self.qlstm_cell.VQC.values():
+            gate.update()
+
+    def get_n_params(self):
+        qlstm_params = self.qlstm_cell.get_n_params()
+        n_qlstm_params = sum(p.numel() for p in self.qlstm_cell.parameters())
+        n_classifier_params = sum(p.numel() for p in self.fc.parameters())
+        n_all_params = sum(p.numel() for p in self.parameters())
+        n_params = {'n_qlstm_params': n_qlstm_params, 'n_classifier_params': n_classifier_params, 
+                    'n_all_params': n_all_params}
+        qlstm_params.update(n_params)
+        return qlstm_params
+
 
 class MLPClassifier(nn.Module, KWArgsMixin):
     '''

@@ -8,7 +8,7 @@ from .experiment import build_train, infer
 from .utils import read_config
 
 
-def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_predictions, model_dir = './models/'):
+def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_predictions, model_dir = './models/', count=50):
     wandb.login()
 
     sweep_config = {
@@ -40,6 +40,9 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
     elif arch == 'circ':
         circ_params = read_config('configs/sweep_circ.json')
         global_params.update(circ_params)
+    elif arch == 'qlstm':
+        qlstm_params = read_config('configs/sweep_qlstm.json')
+        global_params.update(qlstm_params)
     elif arch == 'rnn' or arch == 'lstm':
         rnn_params = read_config('configs/sweep_rnn.json')
         global_params.update(rnn_params)
@@ -80,7 +83,7 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
                         test=test, patience=patience, save_test_predictions=save_test_predictions)
 
     # Train the network
-    wandb.agent(sweep_id, train, count=50)
+    wandb.agent(sweep_id, train, count=count)
 
 
 def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
@@ -217,6 +220,7 @@ def main():  # pragma: no cover
     parser.add_argument('--model_dir', type=str, default='./models/', help='Directory to save models')
     parser.add_argument('--model_name', type=str, help='Name of the model')
     parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
+    parser.add_argument('--count', type=int, default=50, help='Number of runs for sweep')
     args = parser.parse_args()
     mode = args.mode
     arch = args.arch
@@ -227,9 +231,11 @@ def main():  # pragma: no cover
     save_test_predictions = args.save_test_predictions
     model_name = args.model_name
     patience = args.patience
+    count = args.count
 
     if mode == 'sweep':
-        wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience=patience, save_test_predictions=save_test_predictions)
+        wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience=patience, 
+                    save_test_predictions=save_test_predictions, count=count)
     elif mode == 'inference':
         inference(arch, dataset, model_name, emb_path, test) 
     # elif mode == 'inference_simplified':
