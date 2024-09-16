@@ -431,6 +431,7 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5, save_test_
             criterion = all_datasets.criterion
 
             print('Training...')
+            counter = 0
             total_time = 0
             train_time = 0
             dev_eval_time = 0
