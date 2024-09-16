@@ -267,12 +267,15 @@ class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         self.qlstm_cell = QLSTMCell(emb_dim, hidden_dim, n_wires, n_layers, gates)
         
         if n_classes == 2:
-            self.fc = nn.Linear(hidden_dim, 1)
-            self.sigmoid = nn.Sigmoid()
+            self.classifier = nn.Sequential(
+                nn.Linear(hidden_dim, 1),
+                nn.Sigmoid()
+            )
         else:
-            self.fc = nn.Linear(hidden_dim, n_classes)
-            self.softmax = nn.Softmax(dim=1)
-        
+            self.classifier = nn.Sequential(
+                nn.Linear(hidden_dim, n_classes),
+                nn.Softmax(dim=1)
+            )        
         KWArgsMixin.__init__(self, emb_dim=emb_dim, hidden_dim=hidden_dim, n_wires=n_wires, n_layers=n_layers, gates=gates)
     
     def forward(self, x, seq_lengths):
@@ -292,15 +295,21 @@ class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         # Concatenate outputs for all time steps
         outputs = torch.cat(outputs, dim=1)
         
-        # Use the output of the last time step for classification
-        final_output = outputs[:, -1, :]  # Take the output of the last time step
+        # # Use the output of the last time step for classification
+        # final_output = outputs[:, -1, :]  # Take the output of the last time step
         
-        # Pass through the linear layer
-        logits = self.fc(final_output)
+        # # Pass the final output through the classifier
+        # normalized_output = self.classifier(final_output)
         
-        # Apply sigmoid to get a normalized value
-        normalized_output = self.sigmoid(logits)
-        
+        # Use the last valid output for classification
+        seq_lengths = seq_lengths.to(device=x.device)
+        seq_lengths[seq_lengths == 0] = 1
+        last_valid_indices = seq_lengths - 1
+        last_valid_indices = last_valid_indices.view(-1, 1).expand(-1, self.hidden_dim)
+        last_valid_indices = last_valid_indices.unsqueeze(1)
+        normalized_output = torch.gather(outputs, 1, last_valid_indices).squeeze()
+        normalized_output = self.classifier(normalized_output)
+
         return normalized_output.squeeze(), hidden
     
     def update(self):
@@ -308,9 +317,9 @@ class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             gate.update()
 
     def get_n_params(self):
-        qlstm_params = self.qlstm_cell.get_n_params()
+        qlstm_params = self.qlstm_cell.get_n_params() 
         n_qlstm_params = sum(p.numel() for p in self.qlstm_cell.parameters())
-        n_classifier_params = sum(p.numel() for p in self.fc.parameters())
+        n_classifier_params = sum(p.numel() for p in self.classifier.parameters())
         n_all_params = sum(p.numel() for p in self.parameters())
         n_params = {'n_qlstm_params': n_qlstm_params, 'n_classifier_params': n_classifier_params, 
                     'n_all_params': n_all_params}
