@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 import wandb
 
-from .baseline import (BagOfWordsClassifier, MLPClassifier, CNNClassifier,
+from .baseline import (BagOfWordsClassifier, MLPClassifier, CNNClassifier, QCNNClassifier,
                        QuantumCircuitClassifier, QLSTMClassifier, RecurrentClassifier)
 from .circuit import decompose_hamiltonians, pauli2matrix
 from .dataloading import (CustomDataset, DecompositionDataset, ClassFilteredDataset,
@@ -342,6 +342,14 @@ def build_model(arch, config):
         
         return CNNClassifier(in_channels=config.in_channels, n_layers=config.n_layers, emb_dim=config.emb_dim, out_channels=config.out_channels,
                             n_classes=config.n_classes, kernel_size=config.kernel_size)
+    elif arch == 'qcnn':
+        assert hasattr(config,'n_wires'), 'Number of wires must be provided for qcnn model'
+        assert hasattr(config,'n_layers'), 'Number of layers must be provided for qcnn model'
+        assert hasattr(config,'n_classes'), 'Number of classes must be provided for qcnn model'
+        assert hasattr(config,'ent_layers'), 'Number of entangling layers must be provided for qcnn model'
+
+        return QCNNClassifier(n_wires=config.n_wires, n_layers=config.n_layers, 
+                              ent_layers=config.ent_layers, n_classes=config.n_classes)
     else:
         raise ValueError('Invalid model architecture.')
 

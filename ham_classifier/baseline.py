@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import pennylane as qml
 from .circuit import Circuit, device, QLSTMCell
 from .utils import KWArgsMixin, UpdateMixin
 
@@ -258,6 +258,10 @@ class QuantumCircuitClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
 #self, emb_dim, hidden_dim, n_wires, n_layers, gates, n_classes
 class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
+    '''
+    Quantum LSTM classifier
+    Heavily inspired by the QLSTM implementation in https://github.com/rdisipio/qlstm
+    '''
     def __init__(self, emb_dim, hidden_dim, n_wires, n_layers, gates, n_classes):
         super(QLSTMClassifier, self).__init__()
         self.hidden_dim = hidden_dim
@@ -443,3 +447,131 @@ class CNNClassifier(nn.Module, KWArgsMixin):
         }
         
         return n_params
+
+
+class QCNNClassifier(torch.nn.Module, KWArgsMixin):
+    def __init__(self, n_wires, n_layers, ent_layers, n_classes):
+        super().__init__()
+        self.n_wires = n_wires
+        self.n_layers = n_layers
+        self.n_classes = n_classes
+        
+        weight_shapes, final_wires = self._qcnn_sizes(n_wires, n_layers, ent_layers)
+        self.qml_device = qml.device("default.qubit", wires=n_wires)
+        
+        @qml.qnode(self.qml_device, interface='torch')
+        def conv_net(inputs, weights, last_layer_weights):
+            """Define the QCNN circuit
+            Args:
+                weights (np.array): Parameters of the convolution and pool layers.
+                last_layer_weights (np.array): Parameters of the last dense layer.
+                features (np.array): Input data to be embedded using AmplitudEmbedding."""
+
+            layers = weights.shape[1]
+            wires = list(range(n_wires))
+
+            # inputs the state input_state
+            qml.AmplitudeEmbedding(features=inputs, wires=wires, pad_with=0.5, normalize=True)
+
+            # adds convolutional and pooling layers
+            for j in range(layers):
+                self._conv_and_pooling(weights[:, j], wires, skip_first_layer=(not j == 0))
+                wires = wires[::2]
+
+            self._dense_layer(last_layer_weights, wires)
+
+            # Perform expval on the remaining wires
+            return [qml.expval(qml.PauliZ(w)) for w in final_wires]
+        
+        self.conv_net = qml.qnn.TorchLayer(conv_net, weight_shapes)
+        if n_classes == 2:
+            self.classifier = torch.nn.Sequential(
+                torch.nn.Linear(len(final_wires), 1),
+                torch.nn.Sigmoid()
+            )
+        elif n_classes > 2:
+            self.classifier = torch.nn.Sequential(
+                torch.nn.Linear(len(final_wires), n_classes),
+                torch.nn.Softmax(dim=-1)
+            )
+        else:
+            raise ValueError("The number of classes must be greater than 1!")
+
+        KWArgsMixin.__init__(self, n_wires=n_wires, n_layers=n_layers)
+
+    def _qcnn_sizes(self, n_wires, n_layers, ent_layers):
+        wires = list(range(n_wires))
+        for i in range(n_layers):
+            wires = wires[::2]
+
+        n_final_wires = len(wires)
+        assert n_final_wires > 1, "The number of final wires is too low!"
+        return {"weights": (18, n_layers), "last_layer_weights": (ent_layers, n_final_wires, 3)}, wires
+
+    def _convolutional_layer(self, weights, wires, skip_first_layer=True):
+        """Adds a convolutional layer to a circuit.
+        Args:
+            weights (np.array): 1D array with 15 weights of the parametrized gates.
+            wires (list[int]): Wires where the convolutional layer acts on.
+            skip_first_layer (bool): Skips the first two U3 gates of a layer.
+        """
+        n_wires = len(wires)
+        assert n_wires >= 3, "this circuit is too small!"
+
+        for p in [0, 1]:
+            for indx, w in enumerate(wires):
+                if indx % 2 == p and indx < n_wires - 1:
+                    if indx % 2 == 0 and not skip_first_layer:
+                        qml.U3(*weights[:3], wires=[w])
+                        qml.U3(*weights[3:6], wires=[wires[indx + 1]])
+                    qml.IsingXX(weights[6], wires=[w, wires[indx + 1]])
+                    qml.IsingYY(weights[7], wires=[w, wires[indx + 1]])
+                    qml.IsingZZ(weights[8], wires=[w, wires[indx + 1]])
+                    qml.U3(*weights[9:12], wires=[w])
+                    qml.U3(*weights[12:], wires=[wires[indx + 1]])
+
+
+    def _pooling_layer(self, weights, wires):
+        """Adds a pooling layer to a circuit.
+        Args:
+            weights (np.array): Array with the weights of the conditional U3 gate.
+            wires (list[int]): List of wires to apply the pooling layer on.
+        """
+        n_wires = len(wires)
+        assert len(wires) >= 2, "this circuit is too small!"
+
+        for indx, w in enumerate(wires):
+            if indx % 2 == 1 and indx < n_wires:
+                m_outcome = qml.measure(w)
+                qml.cond(m_outcome, qml.U3)(*weights, wires=wires[indx - 1])
+
+
+    def _conv_and_pooling(self, kernel_weights, n_wires, skip_first_layer=True):
+        """Apply both the convolutional and pooling layer."""
+        self._convolutional_layer(kernel_weights[:15], n_wires, skip_first_layer=skip_first_layer)
+        self._pooling_layer(kernel_weights[15:], n_wires)
+
+
+    def _dense_layer(self, weights, wires):
+        """Apply an arbitrary unitary gate to a specified set of wires."""
+        qml.StronglyEntanglingLayers(weights, wires)
+
+    def forward(self, input, _):
+        input = input.squeeze()
+        assert len(input) <= 2 ** self.n_wires, "The input is too large for the number of wires!"
+        output = self.conv_net(input)
+        return self.classifier(output).squeeze(), output
+    
+    def get_n_params(self):
+        conv_params = 15 * self.n_layers
+        pool_params = 3 * self.n_layers
+        dense_params = 2 ** self.n_layers - 1
+        if self.n_classes == 2:
+            classifier_params = 2
+        else:
+            classifier_params = self.n_classes
+
+        n_all_params = conv_params + pool_params + dense_params + classifier_params
+        return {"n_conv_params": conv_params, "n_pool_params": pool_params,
+                "n_dense_params": dense_params, "n_classifier_params": classifier_params,
+                "n_all_params": n_all_params}

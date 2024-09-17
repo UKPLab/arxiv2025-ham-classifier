@@ -1,4 +1,4 @@
-from .baseline import (BagOfWordsClassifier, MLPClassifier, CNNClassifier,
+from .baseline import (BagOfWordsClassifier, MLPClassifier, CNNClassifier, QCNNClassifier,
                        QuantumCircuitClassifier, RecurrentClassifier, QLSTMClassifier)
 from .circuit import (CNOT, CZ, RX, RY, RZ, Circuit, CRXAllToAll, CRXRing,
                       CRZAllToAll, CRZRing, CZRing, H, I, ILayer, PauliCircuit,
@@ -21,6 +21,7 @@ __all__ = [
     "RecurrentClassifier",
     "MLPClassifier",
     "CNNClassifier",
+    "QCNNClassifier",
     "BagOfWordsClassifier",
     "QuantumCircuitClassifier",
     "QLSTMClassifier",

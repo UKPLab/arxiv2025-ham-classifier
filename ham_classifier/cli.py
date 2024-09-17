@@ -54,6 +54,9 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
     elif arch == 'cnn':
         cnn_params = read_config('configs/sweep_cnn.json')
         global_params.update(cnn_params)
+    elif arch == 'qcnn':
+        qcnn_params = read_config('configs/sweep_qcnn.json')
+        global_params.update(qcnn_params)
     elif arch == 'ham_peffbias':
         ham_params = read_config('configs/sweep_ham_peffbias.json')
         global_params.update(ham_params)
