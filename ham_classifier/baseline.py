@@ -450,11 +450,17 @@ class CNNClassifier(nn.Module, KWArgsMixin):
 
 
 class QCNNClassifier(torch.nn.Module, KWArgsMixin):
+    '''
+    Quantum Convolutional Neural Network Classifier.
+    Inspired by the QCNN implementation in https://pennylane.ai/qml/demos/tutorial_learning_few_data/
+    '''
+
     def __init__(self, n_wires, n_layers, ent_layers, n_classes):
         super().__init__()
         self.n_wires = n_wires
         self.n_layers = n_layers
         self.n_classes = n_classes
+        self.ent_layers = ent_layers
         
         weight_shapes, final_wires = self._qcnn_sizes(n_wires, n_layers, ent_layers)
         self.qml_device = qml.device("default.qubit", wires=n_wires)
@@ -497,7 +503,7 @@ class QCNNClassifier(torch.nn.Module, KWArgsMixin):
         else:
             raise ValueError("The number of classes must be greater than 1!")
 
-        KWArgsMixin.__init__(self, n_wires=n_wires, n_layers=n_layers)
+        KWArgsMixin.__init__(self, n_wires=n_wires, n_layers=n_layers, ent_layers=ent_layers, n_classes=n_classes)
 
     def _qcnn_sizes(self, n_wires, n_layers, ent_layers):
         wires = list(range(n_wires))
@@ -563,14 +569,12 @@ class QCNNClassifier(torch.nn.Module, KWArgsMixin):
         return self.classifier(output).squeeze(), output
     
     def get_n_params(self):
+        _, final_wires = self._qcnn_sizes(self.n_wires, self.n_layers, self.ent_layers)
         conv_params = 15 * self.n_layers
         pool_params = 3 * self.n_layers
-        dense_params = 2 ** self.n_layers - 1
-        if self.n_classes == 2:
-            classifier_params = 2
-        else:
-            classifier_params = self.n_classes
-
+        dense_params = 3 * self.ent_layers * len(final_wires)
+        classifier_params = sum(p.numel() for p in self.classifier.parameters())
+        
         n_all_params = conv_params + pool_params + dense_params + classifier_params
         return {"n_conv_params": conv_params, "n_pool_params": pool_params,
                 "n_dense_params": dense_params, "n_classifier_params": classifier_params,
