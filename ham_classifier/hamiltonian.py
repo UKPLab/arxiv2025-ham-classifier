@@ -100,7 +100,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             if self.n_classes == 2:
                 self.measurement_map = nn.Linear(emb_dim, self.n_paulis)
             else:
-                self.measurement_map = nn.ModuleList([nn.Linear(emb_dim, n_paulis) for _ in range(n_classes)])
+                self.measurement_map = nn.ModuleList([nn.Linear(emb_dim, self.n_paulis) for _ in range(n_classes)])
 
         if bias == 'matrix':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
@@ -111,8 +111,8 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         elif bias == 'single':
             self.bias_param = nn.Parameter(torch.rand((1, 1)), )
 
-        KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, bias=bias, batch_norm=batch_norm, n_paulis=n_paulis,
-                                pauli_strings=pauli_strings, strategy=strategy, pauli_weight=pauli_weight, pos_enc=pos_enc, 
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, bias=bias, batch_norm=batch_norm, n_paulis=self.n_paulis,
+                                pauli_strings=self.pauli_strings, strategy=strategy, pauli_weight=pauli_weight, pos_enc=pos_enc, 
                                 n_wires=n_wires, max_len=max_len, **kwargs)
         self.update()
 
