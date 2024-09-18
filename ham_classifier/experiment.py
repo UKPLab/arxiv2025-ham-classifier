@@ -286,9 +286,11 @@ def build_model(arch, config):
         assert hasattr(config,'n_classes'), 'Number of classes must be provided for hamiltonian model'
         if not hasattr(config,'pauli_strings'):
             config.pauli_strings = None
+        if not hasattr(config,'pauli_weight'):
+            config.pauli_weight = None
 
         return HamiltonianClassifier(emb_dim=config.emb_dim, circ_in=config.circ_in, n_classes=config.n_classes,
-                                     bias=config.bias, gates=config.gates, n_reps=config.n_reps,
+                                     bias=config.bias, gates=config.gates, n_reps=config.n_reps, pauli_weight=config.pauli_weight,
                                      pos_enc=config.pos_enc, batch_norm=config.batch_norm, pauli_strings=config.pauli_strings,
                                      n_paulis=config.n_paulis, strategy=config.strategy, n_wires=config.n_wires)
     elif arch == 'rnn' or arch == 'lstm':
@@ -407,7 +409,7 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5, save_test_
         # Finds device to run on
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print(f'Running on {device}')
-
+        
         # Initialize a new wandb run
         with wandb.init(config=config):#, Tensor.backend('pytorch'):
             config = wandb.config

@@ -44,11 +44,12 @@
         "value": "simplified"
     },
     "n_paulis": {
-        "values": [10, 50, 100, 
-        500, 1000, 5000, 10000,
-        50000, 100000, 500000, 1000000]
+        "value": null
     },
     "n_wires": {
-        "value": 6
+        "value": [6, 3, 9]
+    },
+    "pauli_weight": {
+        "values": [1, "half", "max"] 
     }
 }
