@@ -47,7 +47,7 @@
         "value": null
     },
     "n_wires": {
-        "value": [6, 3, 9]
+        "values": [6, 3, 9]
     },
     "pauli_weight": {
         "values": [1, "half", "max"] 
