@@ -124,6 +124,8 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
         global_params = read_config(f'configs/run_mlp_{dataset}.json')
     elif arch == 'cnn':
         global_params = read_config(f'configs/run_cnn_{dataset}.json')
+    elif arch == 'qcnn':
+        global_params = read_config(f'configs/run_qcnn_{dataset}.json')
     elif arch == 'ablation_peffbias':
         global_params = read_config(f'configs/run_ablation_peffbias_{dataset}.json')
         arch = 'ham'
