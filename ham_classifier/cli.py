@@ -104,56 +104,58 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
 
     sweep_config['metric'] = metric
 
-    if arch == 'ham':
-        global_params = read_config(f'configs/run_ham_{dataset}.json')
-    elif arch == 'ham_peffbias':
-        global_params = read_config(f'configs/run_ham_peffbias_{dataset}.json')
-        arch = 'ham'
-    elif arch == 'ham_sim':
-        global_params = read_config(f'configs/run_ham_sim_{dataset}.json')
-        arch = 'ham'
-    elif arch == 'circ':
-        global_params = read_config(f'configs/run_circ_{dataset}.json')
-    elif arch == 'rnn':
-        global_params = read_config(f'configs/run_rnn_{dataset}.json')
-    elif arch == 'lstm':
-        global_params = read_config(f'configs/run_lstm_{dataset}.json')
-    elif arch == 'bow':
-        global_params = read_config(f'configs/run_bow_{dataset}.json')
-    elif arch == 'mlp':
-        global_params = read_config(f'configs/run_mlp_{dataset}.json')
-    elif arch == 'cnn':
-        global_params = read_config(f'configs/run_cnn_{dataset}.json')
-    elif arch == 'qcnn':
-        global_params = read_config(f'configs/run_qcnn_{dataset}.json')
-    elif arch == 'ablation_peffbias':
-        global_params = read_config(f'configs/run_ablation_peffbias_{dataset}.json')
-        arch = 'ham'
-    elif arch == 'ablation_nobias':
-        global_params = read_config(f'configs/run_ablation_nobias_{dataset}.json')
-        arch = 'ham'
-    elif arch == 'ablation_sentin':
-        global_params = read_config(f'configs/run_ablation_sentin_{dataset}.json')
-        arch = 'ham'
-    elif arch == 'ablation_circham':
-        global_params = read_config(f'configs/run_ablation_circham_{dataset}.json')
-        arch = 'circ'
-    elif arch == 'ablation_hamhad':
-        global_params = read_config(f'configs/run_ablation_hamhad_{dataset}.json')
-        arch = 'ham'
-    elif arch == 'exp_ham_sim_qubit':
-        global_params = read_config(f'configs/run_exp_ham_sim_qubit_{dataset}.json')
-        arch = 'ham'
-    elif arch == 'exp_ham_sim_pauli':
-        global_params = read_config(f'configs/run_exp_ham_sim_pauli_{dataset}.json')
-        arch = 'ham'
-    else:
-        raise ValueError(f'Architecture {arch} not recognized.')
+    global_params = {}
 
     if sweep_seed:
         global_params.update({'seed': {'values': [random.randrange(1000) for _ in range(10)]}})
     else:
         global_params.update({'seed': {'value': 42}})
+
+    if arch == 'ham':
+        global_params.update(read_config(f'configs/run_ham_{dataset}.json'))
+    elif arch == 'ham_peffbias':
+        global_params.update(read_config(f'configs/run_ham_peffbias_{dataset}.json'))
+        arch = 'ham'
+    elif arch == 'ham_sim':
+        global_params.update(read_config(f'configs/run_ham_sim_{dataset}.json'))
+        arch = 'ham'
+    elif arch == 'circ':
+        global_params.update(read_config(f'configs/run_circ_{dataset}.json'))
+    elif arch == 'rnn':
+        global_params.update(read_config(f'configs/run_rnn_{dataset}.json'))
+    elif arch == 'lstm':
+        global_params.update(read_config(f'configs/run_lstm_{dataset}.json'))
+    elif arch == 'bow':
+        global_params.update(read_config(f'configs/run_bow_{dataset}.json'))
+    elif arch == 'mlp':
+        global_params.update(read_config(f'configs/run_mlp_{dataset}.json'))
+    elif arch == 'cnn':
+        global_params.update(read_config(f'configs/run_cnn_{dataset}.json'))
+    elif arch == 'qcnn':
+        global_params.update(read_config(f'configs/run_qcnn_{dataset}.json'))
+    elif arch == 'ablation_peffbias':
+        global_params.update(read_config(f'configs/run_ablation_peffbias_{dataset}.json'))
+        arch = 'ham'
+    elif arch == 'ablation_nobias':
+        global_params.update(read_config(f'configs/run_ablation_nobias_{dataset}.json'))
+        arch = 'ham'
+    elif arch == 'ablation_sentin':
+        global_params.update(read_config(f'configs/run_ablation_sentin_{dataset}.json'))
+        arch = 'ham'
+    elif arch == 'ablation_circham':
+        global_params.update(read_config(f'configs/run_ablation_circham_{dataset}.json'))
+        arch = 'circ'
+    elif arch == 'ablation_hamhad':
+        global_params.update(read_config(f'configs/run_ablation_hamhad_{dataset}.json'))
+        arch = 'ham'
+    elif arch == 'exp_ham_sim_qubit':
+        global_params.update(read_config(f'configs/run_exp_ham_sim_qubit_{dataset}.json'))
+        arch = 'ham'
+    elif arch == 'exp_ham_sim_pauli':
+        global_params.update(read_config(f'configs/run_exp_ham_sim_pauli_{dataset}.json'))
+        arch = 'ham'
+    else:
+        raise ValueError(f'Architecture {arch} not recognized.')
 
     sweep_config['parameters'] = global_params
 
