@@ -31,10 +31,12 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         self.emb_dim = emb_dim
         self.circ_in = circ_in
         self.bias = bias
+        
         self.strategy = strategy
         self.max_len = max_len
         self.pos_enc = pos_enc
         self.n_classes = n_classes
+        self.n_paulis = n_paulis
         self.pauli_weight = pauli_weight
 
         if n_classes != 2 and strategy != 'simplified':
