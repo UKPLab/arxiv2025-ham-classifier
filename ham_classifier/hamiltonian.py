@@ -31,7 +31,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         self.emb_dim = emb_dim
         self.circ_in = circ_in
         self.bias = bias
-        
+        self.pauli_strings = pauli_strings
         self.strategy = strategy
         self.max_len = max_len
         self.pos_enc = pos_enc
