@@ -125,6 +125,8 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
         global_params.update(read_config(f'configs/run_rnn_{dataset}.json'))
     elif arch == 'lstm':
         global_params.update(read_config(f'configs/run_lstm_{dataset}.json'))
+    elif arch == 'qlstm':
+        global_params.update(read_config(f'configs/run_qlstm_{dataset}.json'))
     elif arch == 'bow':
         global_params.update(read_config(f'configs/run_bow_{dataset}.json'))
     elif arch == 'mlp':
