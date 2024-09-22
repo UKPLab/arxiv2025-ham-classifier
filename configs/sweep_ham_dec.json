@@ -1,0 +1,37 @@
+{
+    "circ_in": {
+        "value": "zeros"
+    },
+    "gates": {
+        "values": [
+            [
+                "rx",
+                "rz",
+                "crx_all_to_all",
+                "rx",
+                "rz"
+            ],
+            [
+                "ry",
+                "crx_ring",
+                "ry",
+                "crx_ring"
+            ],
+            [
+                "rx",
+                "ry",
+                "rz"
+            ]
+        ]
+    },
+    "n_reps": {
+        "values": [
+            8,
+            16,
+            32
+        ]
+    },
+    "n_paulis": {
+        "values": [100, 500, 1000, 5000] 
+    }
+}
