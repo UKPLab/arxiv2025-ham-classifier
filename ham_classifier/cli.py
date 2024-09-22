@@ -119,6 +119,9 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
     elif arch == 'ham_sim':
         global_params.update(read_config(f'configs/run_ham_sim_{dataset}.json'))
         arch = 'ham'
+    elif arch == 'ham_dec':
+        global_params.update(read_config(f'configs/run_ham_dec_{dataset}.json'))
+        arch = 'ham_dec'
     elif arch == 'circ':
         global_params.update(read_config(f'configs/run_circ_{dataset}.json'))
     elif arch == 'rnn':

@@ -91,7 +91,6 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                 else:
                     raise ValueError(f'Invalid pauli_weight {pauli_weight}')
                                     
-
             measurements = []
             for row in self.pauli_strings:
                 pauli = all_paulis[row[0]]
@@ -103,6 +102,7 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
                 self.measurement_map = nn.Linear(emb_dim, self.n_paulis)
             else:
                 self.measurement_map = nn.ModuleList([nn.Linear(emb_dim, self.n_paulis) for _ in range(n_classes)])
+
 
         if bias == 'matrix':
             self.bias_param = nn.Parameter(torch.rand((2**self.n_wires, 2**self.n_wires)), )
@@ -159,6 +159,8 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             return self._hamiltonian_full(x, seq_lengths)
         elif self.strategy == 'simplified':
             return self._hamiltonian_sim(x, seq_lengths)
+        elif self.strategy == 'decomposed':
+            return self._hamiltonian_dec(x, seq_lengths)
         else:
             raise ValueError(f'Unknown strategy {self.strategy}')
 
@@ -234,6 +236,57 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             x = x + h0
             x = torch.nn.functional.normalize(x,dim=0)
         else:
+            x = [m(x).type(torch.complex64) for m in self.measurement_map]
+            x = torch.stack(x, dim=1)
+            seq_lengths_inv = 1 / seq_lengths
+            x = torch.einsum('bcsp, b -> bcsp', x, seq_lengths_inv)
+            x = torch.einsum('bcsp, pij -> bcij', x, self.measurements)
+
+        return x
+    
+    def _hamiltonian_dec(self, x, seq_lengths):
+        x = x.to(device)
+        seq_lengths = seq_lengths.to(device)
+        
+        # Add vector bias
+        if self.bias == 'vector':
+            batch_bias = [self.bias_param.view(1, -1).repeat(l, 1) for l in seq_lengths]
+            batch_bias = nn.utils.rnn.pad_sequence(batch_bias, batch_first=True)
+            x += batch_bias
+        
+        # Pad emb_size to next power of 2 (batch_size, 2**n_wires, 2**n_wires)
+        x = torch.nn.functional.pad(x, (0, 2**self.n_wires - self.emb_dim))
+        x = x / seq_lengths.view(-1, 1, 1)
+        x = x.type(torch.complex64)
+
+        if self.n_classes == 2:
+            x_exp = x.expand(-1, -1, self.n_paulis)
+            x_exp = x_exp.reshape(-1, self.n_paulis, 2**self.n_wires)
+            x_perm = x_exp.gather(1, self.permutations)
+            x_sign = x_perm * self.signs
+            x = x @ x_sign
+
+            # vec_coeffs = torch.einsum('bsj, pij -> bpi', x, self.measurements)
+            # coeffs = torch.einsum('bpi, bsi -> bp', vec_coeffs, x)
+            # x = torch.einsum('bp, pij -> bij', coeffs, self.measurements)
+
+            # Add bias
+            if self.bias == 'matrix': # Full matrix
+                h0 = self.bias_param.triu() + self.bias_param.triu(1).H
+            elif self.bias == 'vector': # Done before
+                h0 = torch.zeros_like(x[0])
+            elif self.bias == 'diag': # Diagonal matrix
+                h0 = torch.diag(self.bias_param.view(-1))
+            elif self.bias == 'single': # Constant * Identity
+                h0 = self.bias_param * I(self.n_wires)
+            elif self.bias == 'none': # No bias
+                h0 = torch.zeros_like(x[0])
+            else:
+                raise ValueError(f'Unknown bias {self.bias}')
+            x = x + h0
+            x = torch.nn.functional.normalize(x,dim=0)
+        else:
+            raise ValueError('Decomposed strategy not supported for multiple classes')
             x = [m(x).type(torch.complex64) for m in self.measurement_map]
             x = torch.stack(x, dim=1)
             seq_lengths_inv = 1 / seq_lengths
@@ -353,4 +406,183 @@ class HamiltonianClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         all_params = circ_params + bias_params + pos_enc_params + measurements_params + batch_norm_params
         n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params, 'n_measurements_params': measurements_params,
                     'n_batch_norm_params': batch_norm_params, 'n_pos_enc_params': pos_enc_params, 'n_all_params': all_params,}
+        return n_params
+
+
+class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
+    def __init__(self, emb_dim, circ_in, n_paulis=None, pauli_strings=None, 
+                 pauli_weight=None, n_classes=2, *args, **kwargs):
+        super().__init__()
+        self.emb_dim = emb_dim
+        self.circ_in = circ_in
+        self.n_paulis = n_paulis
+        self.pauli_strings = pauli_strings
+        self.pauli_weight = pauli_weight
+        self.n_classes = n_classes
+        self.n_wires = (emb_dim - 1).bit_length() # Next power of 2 of log(emb_size)
+
+        if n_classes != 2:
+            raise ValueError('Decomposed strategy only supports binary classification')
+
+        if pauli_strings is not None:
+            assert n_paulis == len(pauli_strings), 'Number of Pauli strings must match n_paulis'
+            assert pauli_strings.shape == (n_paulis, self.n_wires), 'Pauli strings must be of shape (n_paulis, n_wires)'
+
+        self.pauli_strings, self.n_paulis, self.permutations, self.signs = self._generate_perms_signs(pauli_weight, self.n_wires, self.n_paulis)
+
+        self.bias_param = nn.Parameter(torch.rand((emb_dim, 1)), )
+        self.reweighting = nn.Parameter(torch.rand((self.n_paulis)), )
+        self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
+        self.batch_norm = nn.BatchNorm1d(1)
+
+        KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, n_paulis=self.n_paulis, 
+                             pauli_strings=self.pauli_strings, pauli_weight=pauli_weight, 
+                             n_classes=n_classes, **kwargs)
+
+
+    def _generate_perms_signs(self, pauli_weight, n_wires, n_paulis):
+        all_paulis = [I(1), X(), Y(), Z()]
+        if pauli_weight is None:
+            pauli_strings = torch.randint(0, len(all_paulis), (n_paulis, n_wires))
+            pauli_strings = pauli_strings
+        elif pauli_weight == 'max':
+            pauli_strings = self._generate_pauli_strings(n_wires, n_wires)
+            n_paulis = pauli_strings.shape[0]
+        elif pauli_weight == 'half':
+            pauli_strings = self._generate_pauli_strings((n_wires + 1) // 2, n_wires)
+            n_paulis = pauli_strings.shape[0]
+        elif isinstance(pauli_weight, int):
+            pauli_strings = self._generate_pauli_strings(pauli_weight, n_wires)
+            n_paulis = pauli_strings.shape[0]
+        else:
+            raise ValueError(f'Invalid pauli_weight {pauli_weight}')
+        
+        perms = []
+        signs = []
+        for row in pauli_strings:
+            pauli = all_paulis[row[0]]
+            for p in row[1:]:
+                pauli = torch.kron(pauli, all_paulis[p])
+            perm = torch.tensor(range(2**n_wires)).type(torch.complex64).to(device)
+            sign = torch.ones_like(perm)
+            
+            perm = (pauli @ perm)
+            perm = (perm * perm.conj()).real ** 0.5
+            perm = perm.type(torch.long)
+
+            sign = (pauli @ sign)#.view(-1,1)
+            
+            perms.append(perm)
+            signs.append(sign)
+        permutations = torch.stack(perms).to(device)
+        signs = torch.stack(signs).to(device)
+        
+        return pauli_strings, n_paulis, permutations, signs
+
+
+    def _generate_pauli_strings(self, pauli_weights, n_wires):
+        assert pauli_weights <= n_wires, f'Pauli weight {pauli_weights} too large for number of wires {n_wires}'
+        assert pauli_weights > 0, 'Pauli weights must be greater than 0'
+        pauli_indices = [1,2,3]
+
+        # Generate all combinations of Pauli strings with given weight     
+        combinations = []    
+        for i in itertools.combinations_with_replacement(pauli_indices, pauli_weights):
+            i = list(i)
+            i = i + [0] * (n_wires - len(i))
+            combinations += list(itertools.permutations(i, n_wires))
+        combinations = list(set(combinations))
+
+        combinations = torch.tensor(combinations)
+        return combinations
+
+    def state(self, x):
+        x = x.type(torch.complex64).to(device)
+        if self.circ_in == 'sentence': # Mean of sentence
+            sent = x.mean(dim=1).reshape(-1, self.emb_dim) # (batch_size, emb_dim)
+            sent = torch.nn.functional.pad(sent, (0, 2**self.n_wires - self.emb_dim))
+            norms = torch.norm(sent, dim=1).view(-1, 1)
+            if torch.any(norms <= 0):
+                fill_in = torch.zeros_like(sent[(norms <= 0).squeeze()])
+                fill_in[:,0] = 1
+                sent[(norms <= 0).squeeze()] = fill_in
+                norms = torch.norm(sent, dim=1).view(-1, 1)
+            sent = sent / norms
+            sent = self.circuit(sent)
+            return sent
+        elif self.circ_in == 'zeros': # Zero state
+            sent = torch.zeros(2**self.n_wires, dtype=torch.complex64).to(device)
+            sent[0] = 1
+            sent = self.circuit(sent.view(1, -1))
+            sent = sent.repeat(x.shape[0], 1)
+            return sent
+        elif self.circ_in == 'hadamard':
+            sent = torch.ones(2**self.n_wires, dtype=torch.complex64).to(device)
+            sent = sent / torch.norm(sent).view(-1, 1)
+            sent = self.circuit(sent.view(1, -1))
+            sent = sent.repeat(x.shape[0], 1)
+            return sent
+        else:
+            raise ValueError(f'Unknown circuit input {self.circ_in}')
+        
+
+    def _eval_paulis(self, x, reweight=False):
+        x = x.to(device)
+        x_exp = x.unsqueeze(2).expand(-1, -1, self.n_paulis)
+        # TODO: consider moving the view expand to _generate_perms_signs
+        perm_exp = self.permutations.unsqueeze(0).expand(x.shape[0], -1, -1)
+        perm_exp = torch.einsum('bpN -> bNp', perm_exp)
+        
+        x_exp = x_exp.gather(1, perm_exp)
+
+        sign_exp = self.signs.unsqueeze(0)#.expand(x.shape[0], -1, -1)
+
+        x_sign = torch.einsum('bNp, bpN -> bNp', x_exp, sign_exp)
+        x = x.type(torch.complex64)
+        if reweight:        
+            x = torch.einsum('bN, bNp, p -> b', x.conj(), x_sign, self.reweighting.type(torch.complex64))
+        else:
+            x = torch.einsum('bN, bNp -> b', x.conj(), x_sign)
+
+        return x
+
+    def forward(self, x, seq_lengths):
+        '''
+        x: (batch_size, sent_len, emb_dim)
+        lengths: (batch_size)
+
+        Returns:
+        (batch_size), (batch_size, emb_dim)
+        '''
+        x = x.to(device)
+        seq_lengths = seq_lengths.to(device)
+        seq_lengths[seq_lengths == 0] = 1
+        x = x.sum(dim=1) / seq_lengths.view(-1, 1)
+        x = torch.nn.functional.pad(x, (0, 2**self.n_wires - self.emb_dim))
+
+        # TODO: avoid repeating to save space in eval_paulis
+        state = self.state(x)
+
+        # TODO: move reweighting to state eval
+        x_p = self._eval_paulis(x, reweight=True) / 2**self.n_wires
+        state_p = self._eval_paulis(state)
+
+        output = (x_p * state_p).real
+        # output = state_p.real
+        # output = x_p.real
+        output = self.batch_norm(output.view(-1, 1)).view(-1)
+        output = nn.functional.sigmoid(output)
+
+        return output, state
+
+
+    def update(self):
+        self.circuit.update()
+
+
+    def get_n_params(self):
+        bias_params = self.bias_param.numel()
+        circ_params = sum(p.numel() for p in self.circuit.parameters() if p.requires_grad)
+        all_params = circ_params + bias_params
+        n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params, 'n_all_params': all_params,}
         return n_params

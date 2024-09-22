@@ -7,7 +7,7 @@ from .circuit import (CNOT, CZ, RX, RY, RZ, Circuit, CRXAllToAll, CRXRing,
 from .dataloading import (CustomDataset, DecompositionDataset, ClassFilteredDataset,
                           decomposition_collate_fn)
 from .embedding import Embedder, NLTKEmbedder, FlattenEmbedder, PassEmbedder
-from .hamiltonian import HamiltonianClassifier
+from .hamiltonian import HamiltonianClassifier, HamiltonianDecClassifier
 from .utils import KWArgsMixin, UpdateMixin, read_config, DatasetSetup
 
 __all__ = [
@@ -26,6 +26,7 @@ __all__ = [
     "QuantumCircuitClassifier",
     "QLSTMClassifier",
     "HamiltonianClassifier",
+    "HamiltonianDecClassifier",
     "QLSTMCell",
     "I",
     "RX",
