@@ -432,6 +432,7 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
 
         self.bias_param = nn.Parameter(torch.rand((emb_dim, 1)), )
         self.reweighting = nn.Parameter(torch.rand((self.n_paulis)), )
+        # self.reweighting = nn.Parameter(torch.rand((self.n_paulis, self.n_paulis)), )
         self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
         self.batch_norm = nn.BatchNorm1d(1)
 
@@ -514,13 +515,13 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             sent = torch.zeros(2**self.n_wires, dtype=torch.complex64).to(device)
             sent[0] = 1
             sent = self.circuit(sent.view(1, -1))
-            sent = sent.repeat(x.shape[0], 1)
+            # sent = sent.repeat(x.shape[0], 1)
             return sent
         elif self.circ_in == 'hadamard':
             sent = torch.ones(2**self.n_wires, dtype=torch.complex64).to(device)
             sent = sent / torch.norm(sent).view(-1, 1)
             sent = self.circuit(sent.view(1, -1))
-            sent = sent.repeat(x.shape[0], 1)
+            # sent = sent.repeat(x.shape[0], 1)
             return sent
         else:
             raise ValueError(f'Unknown circuit input {self.circ_in}')
@@ -541,6 +542,7 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         x = x.type(torch.complex64)
         if reweight:        
             x = torch.einsum('bN, bNp, p -> b', x.conj(), x_sign, self.reweighting.type(torch.complex64))
+            # x = torch.einsum('bN, bNp, np -> b', x.conj(), x_sign, self.reweighting.type(torch.complex64))
         else:
             x = torch.einsum('bN, bNp -> b', x.conj(), x_sign)
 

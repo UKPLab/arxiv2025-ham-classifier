@@ -65,6 +65,10 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
         ham_params = read_config('configs/sweep_ham_sim.json')
         global_params.update(ham_params)
         arch = 'ham'
+    elif arch == 'ham_dec':
+        ham_params = read_config('configs/sweep_ham_dec.json')
+        global_params.update(ham_params)
+        arch = 'ham_dec'
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 
