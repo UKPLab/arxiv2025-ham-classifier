@@ -489,9 +489,9 @@ class Circuit(nn.Module, UpdateMixin):
                'cnot_ring': CNOTRing, 'crx_ring': CRXRing, 'crz_ring': CRZRing,
                'crx_all_to_all': CRXAllToAll, 'crz_all_to_all': CRZAllToAll}
         self.layers = []
-        for gate in gates * n_reps:
+        for gate in gates:
             self.layers.append(c2g[gate](n_wires=n_wires))
-        self.layers = nn.ModuleList(self.layers)
+        self.layers = nn.ModuleList(self.layers * n_reps)
         self.update()
 
     def forward(self, x):
