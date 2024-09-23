@@ -421,8 +421,6 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         self.n_classes = n_classes
         self.n_wires = (emb_dim - 1).bit_length() # Next power of 2 of log(emb_size)
 
-        if n_classes != 2:
-            raise ValueError('Decomposed strategy only supports binary classification')
 
         if pauli_strings is not None:
             assert n_paulis == len(pauli_strings), 'Number of Pauli strings must match n_paulis'
@@ -431,10 +429,14 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         self.pauli_strings, self.n_paulis, self.permutations, self.signs = self._generate_perms_signs(pauli_weight, self.n_wires, self.n_paulis)
 
         self.bias_param = nn.Parameter(torch.rand((emb_dim, 1)), )
-        self.reweighting = nn.Parameter(torch.rand((self.n_paulis)), )
-        # self.reweighting = nn.Parameter(torch.rand((self.n_paulis, self.n_paulis)), )
         self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
-        self.batch_norm = nn.BatchNorm1d(1)
+        if self.n_classes == 2:
+            self.reweighting = nn.Parameter(torch.rand((self.n_paulis, 1)), )
+            self.batch_norm = nn.BatchNorm1d(1)
+
+        else:
+            self.reweighting = nn.Parameter(torch.rand((self.n_paulis, self.n_classes)), )
+            self.batch_norm = nn.BatchNorm1d(self.n_classes)
 
         KWArgsMixin.__init__(self, emb_dim=emb_dim, circ_in=circ_in, n_paulis=self.n_paulis, 
                              pauli_strings=self.pauli_strings, pauli_weight=pauli_weight, 
@@ -530,7 +532,6 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     def _eval_paulis(self, x, reweight=False):
         x = x.to(device)
         x_exp = x.unsqueeze(2).expand(-1, -1, self.n_paulis)
-        # TODO: consider moving the view expand to _generate_perms_signs
         perm_exp = self.permutations.unsqueeze(0).expand(x.shape[0], -1, -1)
         perm_exp = torch.einsum('bpN -> bNp', perm_exp)
         
@@ -541,11 +542,11 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         x_sign = torch.einsum('bNp, bpN -> bNp', x_exp, sign_exp)
         x = x.type(torch.complex64)
         if reweight:        
-            x = torch.einsum('bN, bNp, p -> b', x.conj(), x_sign, self.reweighting.type(torch.complex64))
-            # x = torch.einsum('bN, bNp, np -> b', x.conj(), x_sign, self.reweighting.type(torch.complex64))
+            x = torch.einsum('bN, bNp, pc -> bc', x.conj(), x_sign, self.reweighting.type(torch.complex64))
         else:
             x = torch.einsum('bN, bNp -> b', x.conj(), x_sign)
-
+            x = x.unsqueeze(1)
+            
         return x
 
     def forward(self, x, seq_lengths):
@@ -562,18 +563,18 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         x = x.sum(dim=1) / seq_lengths.view(-1, 1)
         x = torch.nn.functional.pad(x, (0, 2**self.n_wires - self.emb_dim))
 
-        # TODO: avoid repeating to save space in eval_paulis
         state = self.state(x)
 
-        # TODO: move reweighting to state eval
         x_p = self._eval_paulis(x, reweight=True) / 2**self.n_wires
         state_p = self._eval_paulis(state)
 
         output = (x_p * state_p).real
-        # output = state_p.real
-        # output = x_p.real
-        output = self.batch_norm(output.view(-1, 1)).view(-1)
-        output = nn.functional.sigmoid(output)
+        output = self.batch_norm(output)
+
+        if self.n_classes == 2:
+            output = nn.functional.sigmoid(output).squeeze()
+        else:
+            output = nn.functional.softmax(output, dim=1)
 
         return output, state
 
