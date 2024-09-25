@@ -586,6 +586,9 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     def get_n_params(self):
         bias_params = self.bias_param.numel()
         circ_params = sum(p.numel() for p in self.circuit.parameters() if p.requires_grad)
-        all_params = circ_params + bias_params
-        n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params, 'n_all_params': all_params,}
+        reweight_params = self.reweighting.numel()
+        batch_norm_params = sum(p.numel() for p in self.batch_norm.parameters() if p.requires_grad)
+        all_params = circ_params + bias_params + reweight_params + batch_norm_params
+        n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params, 
+                    'n_reweight_params': reweight_params, 'n_all_params': all_params,}
         return n_params
