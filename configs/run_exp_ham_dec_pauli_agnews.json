@@ -1,0 +1,38 @@
+{
+    "optimizer": {
+        "value": "adam"
+    },
+    "learning_rate": {
+        "value": 0.001
+    },
+    "batch_size": {
+        "value": 128
+    },
+    "epochs": {
+        "value": 30
+    },
+    "emb_dim": {
+        "value": 300
+    },
+    "vocab_size": {
+        "value": null
+    },
+    "circ_in": {
+        "value": "zeros"
+    },
+    "gates": {
+        "value": [
+            "rx",
+            "rz",
+            "crx_all_to_all",
+            "rx",
+            "rz"
+        ]
+    },
+    "n_reps": {
+        "value": 16
+    },
+    "n_paulis": {
+        "values": [50, 100, 500, 1000]
+    }
+}
