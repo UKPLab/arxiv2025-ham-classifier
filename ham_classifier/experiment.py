@@ -428,7 +428,7 @@ def build_train(arch, dataset, model_dir, emb_path, test, patience=5, save_test_
         # Initialize a new wandb run
         with wandb.init(config=config):#, Tensor.backend('pytorch'):
             config = wandb.config
-            torch.manual_seed(config.seed)
+            torch.manual_seed(config._seed)
             do_dev_eval = True
             compute_test_metrics = True
 

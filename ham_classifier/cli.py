@@ -73,9 +73,9 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
         raise ValueError(f'Architecture {arch} not recognized.')
 
     if sweep_seed:
-        global_params.update({'seed': {'values': [random.randrange(1000) for _ in range(10)]}})
+        global_params.update({'_seed': {'values': [random.randrange(1000) for _ in range(10)]}})
     else:
-        global_params.update({'seed': {'value': 42}})
+        global_params.update({'_seed': {'value': 42}})
 
     sweep_config['parameters'] = global_params
 
@@ -111,9 +111,9 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
     global_params = {}
 
     if sweep_seed:
-        global_params.update({'seed': {'values': [random.randrange(1000) for _ in range(10)]}})
+        global_params.update({'_seed': {'values': [random.randrange(1000) for _ in range(10)]}})
     else:
-        global_params.update({'seed': {'value': 42}})
+        global_params.update({'_seed': {'value': 42}})
 
     if arch == 'ham':
         global_params.update(read_config(f'configs/run_ham_{dataset}.json'))
@@ -163,6 +163,12 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
     elif arch == 'exp_ham_sim_pauli':
         global_params.update(read_config(f'configs/run_exp_ham_sim_pauli_{dataset}.json'))
         arch = 'ham'
+    elif arch == 'exp_ham_dec_pauli':
+        global_params.update(read_config(f'configs/run_exp_ham_dec_pauli_{dataset}.json'))
+        arch = 'ham_dec'
+    elif arch == 'test_seed':
+        global_params.update(read_config(f'configs/run_test_seed_{dataset}.json'))
+        arch = 'mlp'
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 
