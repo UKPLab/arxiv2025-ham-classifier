@@ -102,7 +102,7 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
             train_dataset = ConcatDataset([train_dataset, dev_dataset])
             dev_dataset = test_dataset
     elif dataset == 'imdb':
-        datasets = load_dataset("stanfordnlp/imdb")
+        datasets = load_dataset("stanfordnlp/imdb").shuffle(seed=42)
 
         n_classes = 2
         criterion = nn.BCELoss()
@@ -111,13 +111,14 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
             # Split train in train and dev
             train_size = int(0.8 * len(datasets["train"]))
             dev_size = len(datasets["train"]) - train_size
-            train_dataset = CustomDataset(datasets["train"][:train_size], data_key='text', label_key='label')
-            dev_dataset = CustomDataset(datasets["train"][train_size:], data_key='text', label_key='label')
+            train_dataset = CustomDataset(datasets["train"].select(range(train_size)), data_key='text', label_key='label')
+            dev_dataset = CustomDataset(datasets["train"].select(range(train_size, train_size + dev_size)), data_key='text', label_key='label')
             test_dataset = CustomDataset(datasets["test"], data_key='text', label_key='label')
         else:
             train_dataset = CustomDataset(datasets["train"], data_key='text', label_key='label')
             dev_dataset = CustomDataset(datasets["test"], data_key='text', label_key='label')
             test_dataset = CustomDataset(datasets["test"], data_key='text', label_key='label')
+
     elif dataset == 'agnews':
         datasets = load_dataset("ag_news").shuffle(seed=42)
 
@@ -232,20 +233,15 @@ def build_dataset(dataset, config, test, shuffle=True, eval_batch_size=256, batc
         ])
 
         # Download and load the CIFAR-10 training and test datasets
-        full_train_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-        full_test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-        
-        # Filter out the 0 and 1 digits for training and test datasets
-        train_mask = (full_train_dataset.targets == 0) | (full_train_dataset.targets == 1)
-        test_mask = (full_test_dataset.targets == 0) | (full_test_dataset.targets == 1)
+        train_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+        test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+                
+        # Relabel as vehicle vs animal
+        # Vehicle classes are 0,1,8,9
+        # Animal classes are 2,3,4,5,6,7
+        train_dataset.targets = torch.tensor([0 if x in [0,1,8,9] else 1 for x in train_dataset.targets])
+        test_dataset.targets = torch.tensor([0 if x in [0,1,8,9] else 1 for x in test_dataset.targets])
 
-        # Create the filtered subsets
-        filtered_train_indices = torch.where(train_mask)[0]
-        filtered_test_indices = torch.where(test_mask)[0]
-        
-        train_dataset = ClassFilteredDataset(full_train_dataset, filtered_train_indices)
-        test_dataset = ClassFilteredDataset(full_test_dataset, filtered_test_indices)
-        
         if test == False:
             # Split the training set into train and dev
             train_size = int(0.8 * len(train_dataset))
@@ -709,118 +705,3 @@ def infer(arch, dataset, model_name, model_dir, emb_path, test, save_test_predic
     torch.cuda.empty_cache()
     
     print('Current memory allocated: ', torch.cuda.memory_allocated())
-
-
-# def infer_simplified(dataset, model_name, model_dir, emb_path, coeff_steps=1000):
-#     # Finds device to run on
-#     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-#     print(f'Running on {device}')
-
-#     model, model_kwargs = load_model(model_name, model_dir, device)
-#     embedding = load_embedding(emb_path)
-
-#     assert embedding.emb_dim == model_kwargs.emb_dim, 'Embedding and model have different dimensions.'
-
-#     # Load dataset
-#     print('Loading dataset...')
-#     all_datasets = build_dataset(dataset, model_kwargs, test=False, batch_size=128, eval_batch_size=128)
-#     _, data_loader, _ = all_datasets
-#     print('Done.')
-
-#     criterion = nn.BCELoss()
-#     rec_outputs_stack = []
-#     labels_stack = []
-#     outputs_stack = []
-#     with torch.no_grad():
-#         # counter = 0
-#         for batch in tqdm(data_loader):
-#             # counter += 1
-#             # if counter > 2:
-#             #     break
-#             data = batch[0]
-#             labels = batch[1].type(torch.float).to(device)
-#             labels_stack.append(labels)
-
-#             inputs, seq_lengths = embedding(data)
-#             hamiltonians = model.hamiltonian(inputs, seq_lengths)
-#             hamiltonians_list = [h.to('cpu').numpy() for h in hamiltonians]
-#             states = model.state(inputs)
-
-#             outputs = model.expval(hamiltonians, states)
-#             outputs_stack.append(outputs)
-#             acc = (outputs > 0.5).type(torch.int) == labels
-#             # Decompose Hamiltonian
-#             # decompositions = [pauli_decompose(h) for h in hamiltonians]
-#             decompositions = decompose_hamiltonians(hamiltonians_list)
-
-#             # decompositions_dump = [(d,l) for d,l in zip(decompositions, labels)]
-#             # # Append decompositions to a file
-#             # for dec in decompositions_dump:
-#             #     pickle.dump(dec, f)
-            
-#             # Check similarity of hamiltonian to original
-#             reconstructions = torch.zeros((len(labels), hamiltonians.shape[1], hamiltonians.shape[1]), 
-#                                             device=device, dtype=torch.complex64)
-
-#             max_len = max([len(d) for d in decompositions])
-#             rec_outputs = torch.zeros(len(labels), max_len//coeff_steps)
-
-#             for j in tqdm(range(0, max_len//coeff_steps)): # Iterates over no of coefficients 
-#                 # if j > 5:
-#                 #     break
-#                 print('Evaluating on the first {} coefficients'.format((j+1)*coeff_steps))
-#                 for i,d in enumerate(decompositions): # Iterates over samples in batch
-#                     #j*coeff_steps:(j+1)*coeff_steps
-#                     string_list = d[j*coeff_steps:(j+1)*coeff_steps]
-#                     if len(string_list) != 0:
-#                         reconstructions[i] += pauli2matrix(string_list).to(device)
-
-#                 # Compare Hamiltonians with their decompositions
-#                 fro_diff = torch.norm(hamiltonians - torch.nn.functional.normalize(reconstructions, dim=0), p='fro').item()
-#                 print(f'Frobenius difference: {fro_diff}')
-
-#                 # Evaluate the model on original vs reconstructed Hamiltonian
-#                 rec_batch_outputs = model.expval(torch.nn.functional.normalize(reconstructions, dim=0), states)
-#                 rec_outputs[:, j] = rec_batch_outputs
-                
-#                 # TODO: cache loss
-#                 rec_acc = (rec_batch_outputs > 0.5).type(torch.int) == labels
-
-#                 print(f'Accuracy on original: {acc.float().mean().item()}')
-#                 print(f'Accuracy on reconstructed: {rec_acc.float().mean().item()}')
-#             rec_outputs_stack.append(rec_outputs)
-#             # outputs_stack.append(outputs)
-
-#         rec_outputs_stack = [torch.nn.functional.pad(rec_outputs, (0, max_len//coeff_steps - rec_outputs.shape[1])) for rec_outputs in rec_outputs_stack]
-#         rec_outputs_stack = torch.cat(rec_outputs_stack).to(device)
-#         labels = torch.cat(labels_stack)
-#         # outputs = torch.cat(outputs_stack)
-
-#         print('Saving results...')
-#         arch = model_name.split('_')[1]
-#         # Create empty df with columns loss, tp, tn, fp, fn, accuracy, f1, string count
-#         metrics_df = []
-#         outputs_split = torch.split(rec_outputs_stack, 1, dim=1)
-#         for i, rec_outputs in enumerate(outputs_split):
-#             rec_outputs = rec_outputs.squeeze()
-            
-#             print(f'String count: {(i+1) * coeff_steps} Dev loss: {dev_loss}, Dev accuracy: {dev_acc}, Dev F1: {dev_f1}')
-#             metrics_df.append({'loss': dev_loss.cpu().item(), 'tp': epoch_tp, 'tn': epoch_tn, 'fp': epoch_fp, 'fn': epoch_fn,
-#                                             'accuracy': dev_acc, 'f1': dev_f1, 'string_count': (i+1) * coeff_steps})
-#         metrics_df = pd.DataFrame(metrics_df)
-#         metrics_df.to_csv(f'data/sst2/{model_name}_decomposed_metrics.tsv', index=False)
-
-#         # Save outputs to tsv with pandas
-#         # Columns: index prediction
-#         pred_df = pd.DataFrame(rec_outputs_stack.cpu())
-#         pred_df.columns = [f'pred_{c*coeff_steps}' for c in pred_df.columns]
-#         pred_df.to_csv(f'data/sst2/{arch}_{model_name}_decomposed_predictions.tsv', sep='\t', index=False)
-#         print('Done.')
-
-#         del model
-#         del embedding
-#         torch.cuda.empty_cache()
-        
-#         print('Current memory allocated: ', torch.cuda.memory_allocated())
-
-#         print('Done.')

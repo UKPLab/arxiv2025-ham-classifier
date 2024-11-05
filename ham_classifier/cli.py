@@ -31,7 +31,10 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
         else:
             global_params.update({'emb_dim': {'value': 784}})
     elif dataset in ['cifar10', 'cifar2']:
-        global_params.update({'emb_dim': {'value': 1024}})
+        if arch == 'cnn':
+            global_params.update({'emb_dim': {'value': 32}})
+        else:
+            global_params.update({'emb_dim': {'value': 1024}})
 
 
     if arch == 'ham':
@@ -54,6 +57,8 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
     elif arch == 'cnn':
         cnn_params = read_config('configs/sweep_cnn.json')
         global_params.update(cnn_params)
+        if dataset in ['cifar10', 'cifar2']:
+            global_params.update({'in_channels': {'value': 3}})
     elif arch == 'qcnn':
         qcnn_params = read_config('configs/sweep_qcnn.json')
         global_params.update(qcnn_params)
