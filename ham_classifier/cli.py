@@ -66,10 +66,6 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
         ham_params = read_config('configs/sweep_ham_peffbias.json')
         global_params.update(ham_params)
         arch = 'ham'
-    elif arch == 'ham_sim':
-        ham_params = read_config('configs/sweep_ham_sim.json')
-        global_params.update(ham_params)
-        arch = 'ham'
     elif arch == 'ham_dec':
         ham_params = read_config('configs/sweep_ham_dec.json')
         global_params.update(ham_params)
@@ -125,9 +121,6 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
     elif arch == 'ham_peffbias':
         global_params.update(read_config(f'configs/run_ham_peffbias_{dataset}.json'))
         arch = 'ham'
-    elif arch == 'ham_sim':
-        global_params.update(read_config(f'configs/run_ham_sim_{dataset}.json'))
-        arch = 'ham'
     elif arch == 'ham_dec':
         global_params.update(read_config(f'configs/run_ham_dec_{dataset}.json'))
         arch = 'ham_dec'
@@ -161,12 +154,6 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
         arch = 'circ'
     elif arch == 'ablation_hamhad':
         global_params.update(read_config(f'configs/run_ablation_hamhad_{dataset}.json'))
-        arch = 'ham'
-    elif arch == 'exp_ham_sim_qubit':
-        global_params.update(read_config(f'configs/run_exp_ham_sim_qubit_{dataset}.json'))
-        arch = 'ham'
-    elif arch == 'exp_ham_sim_pauli':
-        global_params.update(read_config(f'configs/run_exp_ham_sim_pauli_{dataset}.json'))
         arch = 'ham'
     elif arch == 'exp_ham_dec_pauli':
         global_params.update(read_config(f'configs/run_exp_ham_dec_pauli_{dataset}.json'))
