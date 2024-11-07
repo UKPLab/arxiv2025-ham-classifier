@@ -44,8 +44,6 @@ wandb disabled
 
 ## Usage
 
-python -m ham_classifier --arch qlstm --dataset sst2 --mode run --sweep_seed --test --save_test_predictions
-
 The Command Line Interface of this repository allows you to reproduce training runs, perform inference and carry out a hyperparameter random search. The basic syntax to start an experiment is  
 
 ```bash
