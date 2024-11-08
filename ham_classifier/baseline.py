@@ -283,11 +283,11 @@ class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             )        
         KWArgsMixin.__init__(self, emb_dim=emb_dim, hidden_dim=hidden_dim, n_wires=n_wires, n_layers=n_layers, gates=gates)
     
-    def forward(self, x, seq_lengths):
-        batch_size, seq_len, _ = x.size()
-        
+    def forward(self, x, seq_lengths):        
         # Clamp sequence lengths to max_len
         seq_lengths = torch.clamp(seq_lengths, max=self.max_len)
+        x = x[:, :self.max_len, :]
+        batch_size, seq_len, _ = x.size()
 
         # Initialize hidden state and cell state to zeros
         hidden = (torch.zeros(batch_size, self.hidden_dim).to(x.device),
