@@ -46,6 +46,9 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
     elif arch == 'qlstm':
         qlstm_params = read_config('configs/sweep_qlstm.json')
         global_params.update(qlstm_params)
+        if dataset in ['imdb']:
+            global_params.update({'n_layers': {'values': [n for n in global_params['n_layers']['values'] if n <= 16]}})
+
     elif arch == 'rnn' or arch == 'lstm':
         rnn_params = read_config('configs/sweep_rnn.json')
         global_params.update(rnn_params)
