@@ -454,7 +454,6 @@ class QCNNClassifier(torch.nn.Module, KWArgsMixin):
     Quantum Convolutional Neural Network Classifier.
     Inspired by the QCNN implementation in https://pennylane.ai/qml/demos/tutorial_learning_few_data/
     '''
-
     def __init__(self, n_wires, n_layers, ent_layers, n_classes):
         super().__init__()
         self.n_wires = n_wires
@@ -563,8 +562,8 @@ class QCNNClassifier(torch.nn.Module, KWArgsMixin):
         qml.StronglyEntanglingLayers(weights, wires)
 
     def forward(self, input, _):
-        input = input.squeeze()
-        assert len(input) <= 2 ** self.n_wires, "The input is too large for the number of wires!"
+        input = input.view(input.shape[0], -1)
+        assert input.shape[1] <= 2 ** self.n_wires, "The input is too large for the number of wires!"
         output = self.conv_net(input)
         return self.classifier(output).squeeze(), output
     

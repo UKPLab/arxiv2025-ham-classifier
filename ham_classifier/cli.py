@@ -62,6 +62,9 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
     elif arch == 'qcnn':
         qcnn_params = read_config('configs/sweep_qcnn.json')
         global_params.update(qcnn_params)
+        if dataset in ['cifar10', 'cifar2']:
+            # At least 12 qubits for qcnn on cifar
+            global_params.update({'n_wires': {'values': [w for w in global_params['n_wires']['values'] if w >= 12]}})
     elif arch == 'ham_peffbias':
         ham_params = read_config('configs/sweep_ham_peffbias.json')
         global_params.update(ham_params)
