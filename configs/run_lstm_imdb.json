@@ -21,6 +21,6 @@
         "value": 100
     },
     "rnn_layers": {
-        "value": 1
+        "value": 2
     }
 }

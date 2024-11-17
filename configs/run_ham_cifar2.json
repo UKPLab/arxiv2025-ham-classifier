@@ -6,13 +6,13 @@
         "value": 0.001
     },
     "batch_size": {
-        "value": 256
+        "value": 64
     },
     "epochs": {
         "value": 30
     },
     "emb_dim": {
-        "value": 300
+        "value": 1024
     },
     "vocab_size": {
         "value": null
@@ -31,15 +31,14 @@
     },
     "gates": {
         "value": [
-            "rx",
-            "rz",
-            "crx_all_to_all",
-            "rx",
-            "rz"
+            "ry",
+            "crx_ring",
+            "ry",
+            "crx_ring"
         ]
     },
     "n_reps": {
-        "value": 32
+        "value": 8
     },
     "strategy": {
         "value": "full"

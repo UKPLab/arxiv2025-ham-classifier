@@ -6,21 +6,27 @@
         "value": 0.0001
     },
     "batch_size": {
-        "value": 256
+        "value": 64
     },
     "epochs": {
         "value": 30
     },
     "emb_dim": {
-        "value": 300
+        "value": 32
     },
     "vocab_size": {
         "value": null
     },
-    "hidden_dim": {
-        "value": 100
+    "in_channels": {
+        "value": 3
     },
-    "rnn_layers": {
-        "value": 2
+    "n_layers": {
+        "value": 4
+    },
+    "out_channels": {
+        "value": 32
+    },
+    "kernel_size": {
+        "value": 5
     }
 }
