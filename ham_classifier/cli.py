@@ -80,6 +80,9 @@ def wandb_sweep(arch, dataset, emb_path, sweep_seed, test, patience, save_test_p
         ham_params = read_config('configs/sweep_ham_dec.json')
         global_params.update(ham_params)
         arch = 'ham_dec'
+    elif arch == 'hrnn':
+        hrnn_params = read_config('configs/sweep_hrnn.json')
+        global_params.update(hrnn_params)
     else:
         raise ValueError(f'Architecture {arch} not recognized.')
 
@@ -137,6 +140,8 @@ def wandb_run(arch, dataset, emb_path, sweep_seed, test, save_test_predictions,
     elif arch == 'ham_dec':
         global_params.update(read_config(f'configs/run_ham_dec_{dataset}.json'))
         arch = 'ham_dec'
+    elif arch == 'hrnn':
+        global_params.update(read_config(f'configs/run_hrnn_{dataset}.json'))
     elif arch == 'circ':
         global_params.update(read_config(f'configs/run_circ_{dataset}.json'))
     elif arch == 'rnn':

@@ -1,0 +1,39 @@
+{
+    "batch_size": {
+        "values": [8,16,32]
+    },
+    "hidden_dim": {
+        "values": [50, 100,200]
+    },
+    "circ_in": {
+        "value": "zeros"
+    },
+    "gates": {
+        "values": [
+            [
+                "rx",
+                "rz",
+                "crx_all_to_all",
+                "rx",
+                "rz"
+            ],
+            [
+                "ry",
+                "crx_ring",
+                "ry",
+                "crx_ring"
+            ],
+            [
+                "rx",
+                "ry",
+                "rz"
+            ]
+        ]
+    },
+    "n_reps": {
+        "value": 1
+    },
+    "n_paulis": {
+        "values": [100, 500, 1000, 2000] 
+    }
+}

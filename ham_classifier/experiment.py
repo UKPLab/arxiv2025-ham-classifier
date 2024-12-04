@@ -21,7 +21,7 @@ from .circuit import decompose_hamiltonians, pauli2matrix
 from .dataloading import (CustomDataset, DecompositionDataset, ClassFilteredDataset,
                           decomposition_collate_fn)
 from .embedding import NLTKEmbedder, FlattenEmbedder, PassEmbedder
-from .hamiltonian import HamiltonianClassifier, HamiltonianDecClassifier
+from .hamiltonian import HamiltonianClassifier, HamiltonianDecClassifier, HamiltonianRecurrentClassifier
 from .utils import DotDict, DatasetSetup
 import torch
 
@@ -304,6 +304,23 @@ def build_model(arch, config):
         return HamiltonianDecClassifier(emb_dim=config.emb_dim, circ_in=config.circ_in, n_paulis=config.n_paulis, 
                                  gates=config.gates, n_reps=config.n_reps, pauli_strings=config.pauli_strings, 
                                  pauli_weight=config.pauli_weight, n_classes=config.n_classes) 
+    elif arch == 'hrnn':
+        assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for hamiltonian recurrent model'
+        assert hasattr(config,'hidden_dim'), 'Hidden dimension must be provided for hamiltonian recurrent model'
+        assert hasattr(config,'n_classes'), 'Number of classes must be provided for hamiltonian recurrent model'
+        assert hasattr(config,'circ_in'), 'Type of circ input must be provided for hamiltonian recurrent model'
+        assert hasattr(config,'n_paulis'), 'Number of paulis must be provided for hamiltonian recurrent model'
+        assert hasattr(config,'gates'), 'Gates must be provided for hamiltonian recurrent model'
+        assert hasattr(config,'n_reps'), 'Number of repetitions must be provided for hamiltonian recurrent model'
+        if not hasattr(config,'pauli_strings'):
+            config.pauli_strings = None
+        if not hasattr(config,'pauli_weight'):
+            config.pauli_weight = None
+
+        return HamiltonianRecurrentClassifier(emb_dim=config.emb_dim, hidden_dim=config.hidden_dim, n_classes=config.n_classes,
+                                                circ_in=config.circ_in, n_paulis=config.n_paulis,
+                                                gates=config.gates, n_reps=config.n_reps, pauli_strings=config.pauli_strings,
+                                                pauli_weight=config.pauli_weight)
     elif arch == 'rnn' or arch == 'lstm':
         assert hasattr(config,'emb_dim'), 'Embedding dimension must be provided for recurrent model'
         assert hasattr(config,'hidden_dim'), 'Hidden dimension must be provided for recurrent model'

@@ -592,3 +592,275 @@ class HamiltonianDecClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params, 
                     'n_reweight_params': reweight_params, 'n_all_params': all_params,}
         return n_params
+
+
+class HamiltonianLayer(nn.Module, KWArgsMixin, UpdateMixin):
+    def __init__(self, in_dim, out_dim, circ_in, n_paulis=None, pauli_strings=None, 
+                 pauli_weight=None, *args, **kwargs):
+        super().__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.circ_in = circ_in
+        self.pauli_per_feature = n_paulis // out_dim
+        self.n_paulis = self.pauli_per_feature * out_dim
+        self.pauli_strings = pauli_strings
+        self.pauli_weight = pauli_weight
+        self.n_wires = (in_dim - 1).bit_length() # Next power of 2 of log(emb_size)
+
+        if n_paulis % out_dim != 0:
+            print(f'Warning: n_paulis {n_paulis} not divisible by out_dim {out_dim}, setting n_paulis to {self.n_paulis}')
+        if self.n_paulis == 0:
+            raise ValueError('Number of Pauli strings must be greater than 0')    
+
+        if pauli_strings is not None:
+            assert n_paulis == len(pauli_strings), 'Number of Pauli strings must match n_paulis'
+            assert pauli_strings.shape == (n_paulis, self.n_wires), 'Pauli strings must be of shape (n_paulis, n_wires)'
+
+        self.pauli_strings, self.n_paulis, self.permutations, self.signs = self._generate_perms_signs(pauli_weight, self.n_wires, self.n_paulis)
+
+        self.reweighting = nn.Parameter(torch.rand((self.pauli_per_feature, self.out_dim)), )
+        self.bias_param = nn.Parameter(torch.rand((in_dim, 1)), )
+        self.circuit = Circuit(n_wires=self.n_wires, *args, **kwargs)
+        self.batch_norm = nn.BatchNorm1d(out_dim)
+        self.activation = nn.ReLU()
+
+        self.init_weights()
+
+        KWArgsMixin.__init__(self, in_dim=in_dim, out_dim=out_dim, circ_in=circ_in, n_paulis=self.n_paulis, 
+                             pauli_strings=self.pauli_strings, pauli_weight=pauli_weight, 
+                            **kwargs)
+            
+    def init_weights(self):
+        # Initialize all weights as random values from a normal distribution
+        for param in self.parameters():
+            nn.init.normal_(param, mean=0, std=0.01)
+
+    def _generate_perms_signs(self, pauli_weight, n_wires, n_paulis):
+        all_paulis = [I(1), X(), Y(), Z()]
+        if pauli_weight is None:
+            pauli_strings = torch.randint(0, len(all_paulis), (n_paulis, n_wires))
+            pauli_strings = pauli_strings
+        elif pauli_weight == 'max':
+            pauli_strings = self._generate_pauli_strings(n_wires, n_wires)
+            n_paulis = pauli_strings.shape[0]
+        elif pauli_weight == 'half':
+            pauli_strings = self._generate_pauli_strings((n_wires + 1) // 2, n_wires)
+            n_paulis = pauli_strings.shape[0]
+        elif isinstance(pauli_weight, int):
+            pauli_strings = self._generate_pauli_strings(pauli_weight, n_wires)
+            n_paulis = pauli_strings.shape[0]
+        else:
+            raise ValueError(f'Invalid pauli_weight {pauli_weight}')
+        
+        perms = []
+        signs = []
+        for row in pauli_strings:
+            pauli = all_paulis[row[0]]
+            for p in row[1:]:
+                pauli = torch.kron(pauli, all_paulis[p])
+            perm = torch.tensor(range(2**n_wires)).type(torch.complex64).to(device)
+            sign = torch.ones_like(perm)
+            
+            perm = (pauli @ perm)
+            perm = (perm * perm.conj()).real ** 0.5
+            perm = perm.type(torch.long)
+
+            sign = (pauli @ sign)#.view(-1,1)
+            
+            perms.append(perm)
+            signs.append(sign)
+        permutations = torch.stack(perms).to(device)
+        signs = torch.stack(signs).to(device)
+        
+        return pauli_strings, n_paulis, permutations, signs
+
+    def _generate_pauli_strings(self, pauli_weights, n_wires):
+        assert pauli_weights <= n_wires, f'Pauli weight {pauli_weights} too large for number of wires {n_wires}'
+        assert pauli_weights > 0, 'Pauli weights must be greater than 0'
+        pauli_indices = [1,2,3]
+
+        # Generate all combinations of Pauli strings with given weight     
+        combinations = []    
+        for i in itertools.combinations_with_replacement(pauli_indices, pauli_weights):
+            i = list(i)
+            i = i + [0] * (n_wires - len(i))
+            combinations += list(itertools.permutations(i, n_wires))
+        combinations = list(set(combinations))
+
+        combinations = torch.tensor(combinations)
+        return combinations
+
+    def state(self, x):
+        x = x.type(torch.complex64).to(device)
+        if self.circ_in == 'sentence': # Mean of sentence
+            sent = x.mean(dim=1).reshape(-1, self.in_dim) # (batch_size, emb_dim)
+            sent = torch.nn.functional.pad(sent, (0, 2**self.n_wires - self.in_dim))
+            norms = torch.norm(sent, dim=1).view(-1, 1)
+            if torch.any(norms <= 0):
+                fill_in = torch.zeros_like(sent[(norms <= 0).squeeze()])
+                fill_in[:,0] = 1
+                sent[(norms <= 0).squeeze()] = fill_in
+                norms = torch.norm(sent, dim=1).view(-1, 1)
+            sent = sent / norms
+            sent = self.circuit(sent)
+            return sent
+        elif self.circ_in == 'zeros': # Zero state
+            sent = torch.zeros(2**self.n_wires, dtype=torch.complex64, device=device)
+            sent[0] = 1
+            sent = self.circuit(sent.view(1, -1))
+            # sent = sent.repeat(x.shape[0], 1)
+            return sent
+        elif self.circ_in == 'hadamard':
+            sent = torch.ones(2**self.n_wires, dtype=torch.complex64).to(device)
+            sent = sent / torch.norm(sent).view(-1, 1)
+            sent = self.circuit(sent.view(1, -1))
+            # sent = sent.repeat(x.shape[0], 1)
+            return sent
+        else:
+            raise ValueError(f'Unknown circuit input {self.circ_in}')
+        
+    def _eval_paulis(self, x, reweight=False):
+        x = x.to(device)
+        x_exp = x.unsqueeze(2).expand(-1, -1, self.n_paulis)
+        perm_exp = self.permutations.unsqueeze(0).expand(x.shape[0], -1, -1)
+        perm_exp = torch.einsum('bpN -> bNp', perm_exp)
+        
+        x_exp = x_exp.gather(1, perm_exp)
+
+        sign_exp = self.signs.unsqueeze(0)
+
+        x_sign = torch.einsum('bNp, bpN -> bNp', x_exp, sign_exp)
+        # Divide x_sign into out_dim features creating a new dimension
+        x_sign = x_sign.view(x_sign.shape[0], x_sign.shape[1], self.pauli_per_feature, self.out_dim)
+
+        x = x.type(torch.complex64)
+        if reweight:        
+            x = torch.einsum('bN, bNPf, Pf -> bf', x.conj(), x_sign, self.reweighting.type(torch.complex64))
+        else:
+            x = torch.einsum('bN, bNPf -> bf', x.conj(), x_sign)
+            
+        return x
+
+    def forward(self, x):
+        '''
+        x: (batch_size, emb_dim)
+        _: ignored
+
+        Returns:
+        (batch_size, emb_dim), ignored
+        '''
+        if len(x.shape) != 2:
+            raise ValueError(f'Expected input of shape (batch_size, emb_dim), got {x.shape}')
+        x = x.to(device)
+        x = torch.nn.functional.pad(x, (0, 2**self.n_wires - self.in_dim))
+
+        state = self.state(x)
+
+        x_p = self._eval_paulis(x, reweight=True) #/ 2**self.n_wires
+        state_p = self._eval_paulis(state)
+
+        output = (x_p * state_p).real
+        output = self.batch_norm(output)
+        output = self.activation(output)
+
+        return output
+
+    def update(self):
+        self.circuit.update()
+
+
+    def get_n_params(self):
+        bias_params = self.bias_param.numel()
+        circ_params = sum(p.numel() for p in self.circuit.parameters() if p.requires_grad)
+        reweight_params = self.reweighting.numel()
+        batch_norm_params = sum(p.numel() for p in self.batch_norm.parameters() if p.requires_grad)
+        all_params = circ_params + bias_params + reweight_params + batch_norm_params
+        n_params = {'n_bias_params': bias_params, 'n_circ_params': circ_params, 
+                    'n_reweight_params': reweight_params, 'n_all_params': all_params
+                    }
+        
+        return n_params
+
+
+class HamiltonianRecurrentClassifier(nn.Module, KWArgsMixin, UpdateMixin):
+    def __init__(self, emb_dim, hidden_dim, n_classes, circ_in, n_paulis, max_len=300, pauli_strings=None, 
+                 pauli_weight=None, *args, **kwargs):
+        super().__init__()
+        self.emb_dim = emb_dim
+        self.hidden_dim = hidden_dim
+        self.n_classes = n_classes
+        self.circ_in = circ_in
+        self.max_len = max_len
+        self.n_paulis = n_paulis
+        self.pauli_strings = pauli_strings
+        self.pauli_weight = pauli_weight
+        self.n_wires = (emb_dim + hidden_dim - 1).bit_length()
+
+
+        self.hrnn = HamiltonianLayer( in_dim=emb_dim + hidden_dim, out_dim=hidden_dim, circ_in=circ_in, 
+                                     n_paulis=n_paulis, pauli_strings=pauli_strings, pauli_weight=pauli_weight, 
+                                     *args, **kwargs)
+
+        # self.hrnn = nn.Linear(emb_dim + hidden_dim, hidden_dim)
+
+        if n_classes == 2:
+            self.classifier = HamiltonianLayer(in_dim=hidden_dim, out_dim=1, circ_in=circ_in, n_paulis=n_paulis, 
+                                               pauli_strings=pauli_strings, pauli_weight=pauli_weight, *args, **kwargs)
+        else:
+            self.classifier = HamiltonianLayer(in_dim=hidden_dim, out_dim=n_classes, circ_in=circ_in, n_paulis=n_paulis, 
+                                               pauli_strings=pauli_strings, pauli_weight=pauli_weight, *args, **kwargs)
+
+        KWArgsMixin.__init__(self, in_dim=emb_dim, hidden_dim=hidden_dim, n_classes=n_classes, circ_in=circ_in, max_len=max_len, n_paulis=n_paulis,
+                                pauli_strings=pauli_strings, pauli_weight=pauli_weight, **kwargs)
+
+    def forward(self, x, seq_lengths):        
+        # Clamp sequence lengths to max_len
+        seq_lengths = torch.clamp(seq_lengths, max=self.max_len)
+        x = x[:, :self.max_len, :]
+        batch_size, seq_len, _ = x.size()
+
+        # Pad input to in_dim + hidden_dim with zeros
+        # input = nn.functional.pad(x, (0, self.hidden_dim), value=0)
+        input = x
+        
+        outputs = []
+        h = torch.zeros(batch_size, self.hidden_dim, device=device)
+        for t in range(seq_len):
+            input_t = input[:, t, :]  # Get input at time step t
+
+            input_t = torch.cat([input_t, h], dim=1)  # Concatenate input with hidden state
+            h = self.hrnn(input_t)  # Get the new hidden state and cell state
+            outputs.append(h.unsqueeze(1))  # Collect the output for each time step
+        
+        # Concatenate outputs for all time steps
+        outputs = torch.cat(outputs, dim=1)
+        
+        # Use the last valid output for classification
+        seq_lengths = seq_lengths.to(device=x.device)
+        seq_lengths[seq_lengths == 0] = 1
+        last_valid_indices = seq_lengths - 1
+        last_valid_indices = last_valid_indices.view(-1, 1).expand(-1, self.hidden_dim)
+        last_valid_indices = last_valid_indices.unsqueeze(1)
+        normalized_output = torch.gather(outputs, 1, last_valid_indices).squeeze()
+        normalized_output = self.classifier(normalized_output)
+        if self.n_classes == 2:
+            normalized_output = nn.functional.sigmoid(normalized_output).squeeze()
+        else:
+            normalized_output = nn.functional.softmax(normalized_output, dim=1)
+
+        return normalized_output, h
+    
+    def update(self):
+        self.hrnn.update()
+        self.classifier.update()
+
+    def get_n_params(self):
+        # hrnn_params = self.hrnn.get_n_params()
+        hrnn_params = {'n_all_params': 0}
+        print("WARNING: Ignoring parameters for debugging")
+        # classifier_params = self.classifier.get_n_params()
+        classifier_params = {'n_all_params': 0}
+        all_params = hrnn_params['n_all_params'] + classifier_params['n_all_params']
+        n_params = {'hrnn_params': hrnn_params['n_all_params'], 'classifier_params': classifier_params['n_all_params'], 
+                    'n_all_params': all_params}
+        return n_params
