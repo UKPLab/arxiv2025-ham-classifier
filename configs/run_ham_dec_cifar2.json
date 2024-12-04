@@ -6,22 +6,19 @@
         "value": 0.001
     },
     "batch_size": {
-        "value": 128
+        "value": 64
     },
     "epochs": {
         "value": 30
     },
     "emb_dim": {
-        "value": 300
+        "value": 1024
     },
     "vocab_size": {
         "value": null
     },
-    "bias": {
-        "value": "vector"
-    },
-    "pos_enc": {
-        "value": "none"
+    "circ_in": {
+        "value": "zeros"
     },
     "gates": {
         "value": [
@@ -33,9 +30,9 @@
         ]
     },
     "n_reps": {
-        "value": 16
+        "value": 32
     },
-    "clas_type": {
-        "value": "tomography"
+    "n_paulis": {
+        "value": 1000
     }
 }

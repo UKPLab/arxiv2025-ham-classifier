@@ -18,9 +18,9 @@
         "value": null
     },
     "n_layers": {
-        "value": 5
+        "value": 3
     },
     "hidden_dim": {
-        "value": 100
+        "value": 300
     }
 }

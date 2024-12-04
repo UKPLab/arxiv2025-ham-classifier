@@ -3,10 +3,10 @@
         "value": "adam"
     },
     "learning_rate": {
-        "value": 0.001
+        "value": 0.0001
     },
     "batch_size": {
-        "value": 128
+        "value": 64
     },
     "epochs": {
         "value": 30
@@ -17,25 +17,20 @@
     "vocab_size": {
         "value": null
     },
-    "bias": {
-        "value": "vector"
+    "hidden_dim": {
+        "value": 200
     },
-    "pos_enc": {
-        "value": "none"
+    "n_wires": {
+        "value": 6
     },
     "gates": {
         "value": [
             "rx",
-            "rz",
-            "crx_all_to_all",
-            "rx",
+            "ry",
             "rz"
         ]
     },
-    "n_reps": {
-        "value": 16
-    },
-    "clas_type": {
-        "value": "tomography"
+    "n_layers": {
+        "value": 8
     }
 }

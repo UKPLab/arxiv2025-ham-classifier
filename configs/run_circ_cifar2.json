@@ -6,13 +6,13 @@
         "value": 0.001
     },
     "batch_size": {
-        "value": 128
+        "value": 64
     },
     "epochs": {
         "value": 30
     },
     "emb_dim": {
-        "value": 300
+        "value": 1024
     },
     "vocab_size": {
         "value": null
@@ -26,14 +26,12 @@
     "gates": {
         "value": [
             "rx",
-            "rz",
-            "crx_all_to_all",
-            "rx",
+            "ry",
             "rz"
         ]
     },
     "n_reps": {
-        "value": 16
+        "value": 8
     },
     "clas_type": {
         "value": "tomography"

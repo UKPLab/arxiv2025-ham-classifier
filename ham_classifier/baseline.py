@@ -262,11 +262,12 @@ class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
     Quantum LSTM classifier
     Heavily inspired by the QLSTM implementation in https://github.com/rdisipio/qlstm
     '''
-    def __init__(self, emb_dim, hidden_dim, n_wires, n_layers, gates, n_classes):
+    def __init__(self, emb_dim, hidden_dim, n_wires, n_layers, gates, n_classes, max_len=300):
         super(QLSTMClassifier, self).__init__()
         self.hidden_dim = hidden_dim
         self.n_classes = n_classes
-        
+        self.max_len = max_len
+
         # Single LSTM cell
         self.qlstm_cell = QLSTMCell(emb_dim, hidden_dim, n_wires, n_layers, gates)
         
@@ -282,9 +283,12 @@ class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
             )        
         KWArgsMixin.__init__(self, emb_dim=emb_dim, hidden_dim=hidden_dim, n_wires=n_wires, n_layers=n_layers, gates=gates)
     
-    def forward(self, x, seq_lengths):
+    def forward(self, x, seq_lengths):        
+        # Clamp sequence lengths to max_len
+        seq_lengths = torch.clamp(seq_lengths, max=self.max_len)
+        x = x[:, :self.max_len, :]
         batch_size, seq_len, _ = x.size()
-        
+
         # Initialize hidden state and cell state to zeros
         hidden = (torch.zeros(batch_size, self.hidden_dim).to(x.device),
                     torch.zeros(batch_size, self.hidden_dim).to(x.device))
@@ -298,12 +302,6 @@ class QLSTMClassifier(nn.Module, KWArgsMixin, UpdateMixin):
         
         # Concatenate outputs for all time steps
         outputs = torch.cat(outputs, dim=1)
-        
-        # # Use the output of the last time step for classification
-        # final_output = outputs[:, -1, :]  # Take the output of the last time step
-        
-        # # Pass the final output through the classifier
-        # normalized_output = self.classifier(final_output)
         
         # Use the last valid output for classification
         seq_lengths = seq_lengths.to(device=x.device)
@@ -454,7 +452,6 @@ class QCNNClassifier(torch.nn.Module, KWArgsMixin):
     Quantum Convolutional Neural Network Classifier.
     Inspired by the QCNN implementation in https://pennylane.ai/qml/demos/tutorial_learning_few_data/
     '''
-
     def __init__(self, n_wires, n_layers, ent_layers, n_classes):
         super().__init__()
         self.n_wires = n_wires
@@ -563,8 +560,8 @@ class QCNNClassifier(torch.nn.Module, KWArgsMixin):
         qml.StronglyEntanglingLayers(weights, wires)
 
     def forward(self, input, _):
-        input = input.squeeze()
-        assert len(input) <= 2 ** self.n_wires, "The input is too large for the number of wires!"
+        input = input.view(input.shape[0], -1)
+        assert input.shape[1] <= 2 ** self.n_wires, "The input is too large for the number of wires!"
         output = self.conv_net(input)
         return self.classifier(output).squeeze(), output
     

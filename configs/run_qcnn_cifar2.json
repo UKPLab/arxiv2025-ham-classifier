@@ -3,24 +3,24 @@
         "value": "adam"
     },
     "learning_rate": {
-        "value": 0.0001
+        "value": 0.001
     },
     "batch_size": {
-        "value": 256
+        "value": 64
     },
     "epochs": {
         "value": 30
     },
-    "emb_dim": {
-        "value": 300
-    },
     "vocab_size": {
         "value": null
     },
-    "hidden_dim": {
-        "value": 100
+    "n_layers": {
+        "value": 1
     },
-    "rnn_layers": {
-        "value": 2
+    "n_wires": {
+        "value": 12
+    },
+    "ent_layers": {
+        "value": 8
     }
 }
