@@ -1,4 +1,4 @@
-<h1 align="center">Hamiltonian classifier</h1>
+<h1 align="center">Hamiltonian Classifier</h1>
 <div align="center">
 
   <a href="">[![arXiv](https://img.shields.io/badge/arXiv-TO.DO-red?style=flat-square&logo=arxiv&logoColor=white)](https://put-here-your-paper.com)</a>
@@ -15,7 +15,7 @@ This repository implements the Hamiltonian classifier and its comparison with of
 
 ><details>
 ><summary> <b>Abstract</b> </summary>
->Quantum computing shows great potential for expanding the range of efficiently solvable problems. This promise arises from the advantageous resource and runtime scaling of certain quantum algorithms over classical ones. Quantum machine learning (QML) seeks to extend these advantages to data-driven methods. Initial evidence suggests quantum-based models can outperform classical ones in terms of scaling, runtime and generalization capabilities. However, critics have pointed out that many works rely on extensive feature reduction or use toy datasets to draw conclusions, raising concerns about their applicability to larger problems. Scaling up these results is challenging due to hardware limitations and the high costs generally associated with encoding dense vector representations on quantum devices. To address these challenges, we propose an efficient approach called <i>Hamiltonian classifier</i> inspired by ground-state energy optimization in quantum chemistry. This method circumvents the costs associated with data encoding by mapping inputs to a finite set of Pauli strings and computing predictions as their expectation values. In addition, we introduce two variants with different scaling in terms of parameters and sample complexity. We evaluate our approach on text and image classification tasks, comparing it to well-established classical and quantum models. Our results show the Hamiltonian classifier delivers performance comparable to or better than these methods. Notably, our method achieves logarithmic complexity in both qubits <i>and</i> quantum gates, making it well-suited for large-scale, real-world applications.
+>Quantum machine learning (QML) is a discipline that seeks to transfer the advantages of quantum computing to data-driven tasks. However, many studies rely on toy datasets or heavy feature reduction, raising concerns about their scalability. Progress is further hindered by hardware limitations and the significant costs of encoding dense vector representations on quantum devices. To address these challenges, we propose an efficient approach called <i>Hamiltonian classifier</i> that circumvents the costs associated with data encoding by mapping inputs to a finite set of Pauli strings and computing predictions as their expectation values. In addition, we introduce two classifier variants with different scaling in terms of parameters and sample complexity. We evaluate our approach on text and image classification tasks, against well-established classical and quantum models. The Hamiltonian classifier delivers performance comparable to or better than these methods. Notably, our method achieves logarithmic complexity in both qubits <i>and</i> quantum gates, making it well-suited for large-scale, real-world applications.
 ></details></p>
 
 Contact person: [Federico Tiblias](mailto:federico.tiblias@tu-darmstadt.de) 
@@ -62,12 +62,14 @@ Optionally, the CLI offers additional arguments to control the runs:
 - `--emb_path <path>`: allows specifying an alternative embedding. Must be compatible with PyTorch's `nn.Embedding`;
 - `--count <n>`: specifies how many randomized runs will take place in a `sweep`;
 
+> Note: The SIM method described in the paper is actually referred to as `ham_dec` throughout this codebase. 
+
 ## Cite
 
 Please use the following citation:
 
 ```
-@InProceedings{TODO:EMNLP2024,
+@InProceedings{TODO:ARR2024,
   author    = {Smith, John},
   title     = {My Paper Title},
   booktitle = {Proceedings of the 20XX Conference on XXXX},
