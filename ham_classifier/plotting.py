@@ -5,7 +5,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def fetch_wandb_data(dataset, sweep_ids, project, entity="ukp-quantum", wandb_folder="data/wandb_data"):
+def fetch_wandb_data(dataset, sweep_ids, project, entity="xxx", wandb_folder="data/wandb_data"):
     api = wandb.Api()
 
     summary_list, config_list = [], [] 

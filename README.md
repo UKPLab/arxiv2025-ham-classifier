@@ -2,7 +2,7 @@
 <div align="center">
 
   <a href="">[![arXiv](https://img.shields.io/badge/arXiv-TO.DO-red?style=flat-square&logo=arxiv&logoColor=white)](https://put-here-your-paper.com)</a>
-  <a href="">[![License](https://img.shields.io/github/license/UKPLab/arxiv2024-ham-classifier)](https://opensource.org/licenses/Apache-2.0)</a>
+  <a href="">[![License](https://img.shields.io/github/license/XXX/arxiv2024-ham-classifier)](https://opensource.org/licenses/Apache-2.0)</a>
   <a href="">[![Python Versions](https://img.shields.io/badge/Python-3.12-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)</a>
 
 </div>
@@ -18,13 +18,7 @@ This repository implements the Hamiltonian classifier and its comparison with of
 >Quantum machine learning (QML) is a discipline that seeks to transfer the advantages of quantum computing to data-driven tasks. However, many studies rely on toy datasets or heavy feature reduction, raising concerns about their scalability. Progress is further hindered by hardware limitations and the significant costs of encoding dense vector representations on quantum devices. To address these challenges, we propose an efficient approach called <i>Hamiltonian classifier</i> that circumvents the costs associated with data encoding by mapping inputs to a finite set of Pauli strings and computing predictions as their expectation values. In addition, we introduce two classifier variants with different scaling in terms of parameters and sample complexity. We evaluate our approach on text and image classification tasks, against well-established classical and quantum models. The Hamiltonian classifier delivers performance comparable to or better than these methods. Notably, our method achieves logarithmic complexity in both qubits <i>and</i> quantum gates, making it well-suited for large-scale, real-world applications.
 ></details></p>
 
-Contact person: [Federico Tiblias](mailto:federico.tiblias@tu-darmstadt.de) 
-
-[UKP Lab](https://www.ukp.tu-darmstadt.de/) | [TU Darmstadt](https://www.tu-darmstadt.de/
-)
-
-Don't hesitate to send us an e-mail or report an issue, if something is broken or if you have further questions.
-
+Contact person: Omitted 
 
 ## Getting Started
 
